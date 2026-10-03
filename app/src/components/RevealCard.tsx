@@ -5,6 +5,7 @@ import type { RevealScript } from "@/engine/reveal";
 import { CardView } from "./CardView";
 import { HAPTICS, holdPulse, haptic } from "@/haptics/haptics";
 import { TIER_RANK } from "@/engine/config";
+import { apparentClass } from "./apparent";
 import "./RevealCard.css";
 
 const HOLD_REQUIRED_SCRIPT: Record<RevealScript, boolean> = {
@@ -53,16 +54,23 @@ export function RevealCard({ card, script, skip, onDone }: {
     if (holdTimer.current) { clearInterval(holdTimer.current); holdTimer.current = null; }
   };
 
-  const apparentBig = script === "troll" || (script === "escalated" && TIER_RANK[card.tier] >= 3) || card.tier === "xfactor";
+  // leak guard: clear any in-flight hold interval when the card unmounts
+  useEffect(() => endHold, []);
+
+  // gem fake-out: hold escalation stays muted — a dim heartbeat (pulse-N),
+  // never the gold glow/shake that would telegraph a big card (controller ruling)
+  const gemMute = script === "gem";
 
   return (
     <div data-testid="reveal-surface"
-      className={["reveal-card", `apparent-${apparentBig ? "big" : "dull"}`,
-                  script === "gem" ? "apparent-dull" : "", revealed ? "flipped" : "",
-                  `hold-${holdLevel}`, holdRequired && !revealed ? "shake" : ""].join(" ")}
+      className={["reveal-card", apparentClass(card, script),
+                  revealed ? "flipped" : "",
+                  gemMute ? `pulse-${holdLevel}` : `hold-${holdLevel}`,
+                  holdRequired && !revealed && !gemMute ? "shake" : ""].join(" ")}
       onClick={() => { if (!revealed && !holdRequired) finish(false, false); }}
       onPointerDown={startHold}
       onPointerUp={() => { endHold(); if (!revealed && holdRequired && holdLevel >= 1) finish(script === "troll", script === "gem"); }}
+      onPointerCancel={endHold}
       onPointerLeave={endHold}>
       {revealed
         ? <div className="reveal-front"><CardView card={card} size="lg" />

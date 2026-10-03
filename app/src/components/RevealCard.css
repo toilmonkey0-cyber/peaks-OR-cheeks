@@ -47,15 +47,68 @@
   opacity: 0.9;
 }
 
-/* ---------- apparent tier effects (face-down) ---------- */
+/* ---------- apparent tier tells (spec §7 ladder) ----------
+ * common → subtle shimmer; rare → mid blue glow + slight shake;
+ * elite → strong blue/purple glow + shake; legend/xfactor/troll → gold;
+ * gem → deliberately dull. */
 
-/* big: gold aura — legend-level fake glow */
-.apparent-big .reveal-back {
+/* shimmer overlay shared by tells that sweep light across the back */
+.reveal-back::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+/* common: faint shimmer */
+.apparent-subtle .reveal-back {
+  border-color: #6b7280;
+}
+.apparent-subtle .reveal-back::after {
+  background-image: linear-gradient(115deg,
+    rgba(148, 163, 184, 0.10) 0%, rgba(226, 232, 240, 0.06) 45%, rgba(148, 163, 184, 0.10) 100%);
+  background-size: 250% 250%;
+  animation: subtle-shimmer 5s linear infinite;
+}
+@keyframes subtle-shimmer {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 250% 250%; }
+}
+
+/* rare: blue glow + slight shake */
+.apparent-mid .reveal-back {
+  border-color: #3b82f6;
+  box-shadow: 0 0 16px 3px rgba(59, 130, 246, 0.45);
+  animation: mid-shake 1.4s ease-in-out infinite;
+}
+@keyframes mid-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* elite: strong blue/purple glow + shake */
+.apparent-blue .reveal-back {
+  border-color: #818cf8;
+  box-shadow: 0 0 30px 8px rgba(129, 140, 248, 0.55), 0 0 10px 2px rgba(168, 85, 247, 0.35);
+  animation: blue-shake 0.9s ease-in-out infinite;
+}
+@keyframes blue-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-4px) rotate(-0.6deg); }
+  40% { transform: translateX(4px) rotate(0.6deg); }
+  60% { transform: translateX(-3px) rotate(-0.4deg); }
+  80% { transform: translateX(3px) rotate(0.4deg); }
+}
+
+/* legend / xfactor / troll: full gold masquerade */
+.apparent-gold .reveal-back {
   border-color: #fbbf24;
   box-shadow: 0 0 24px 4px rgba(251, 191, 36, 0.55);
 }
 
-/* dull: deliberately flat gray */
+/* gem fake-out: deliberately flat gray */
 .apparent-dull .reveal-back {
   border-color: #4b5563;
   box-shadow: none;
@@ -78,6 +131,16 @@
 .hold-0 .reveal-back { box-shadow: 0 0 10px 1px rgba(251, 191, 36, 0.25); }
 .hold-1 .reveal-back { box-shadow: 0 0 22px 6px rgba(251, 191, 36, 0.55); }
 .hold-2 .reveal-back { box-shadow: 0 0 38px 12px rgba(251, 191, 36, 0.9); }
+
+/* gem hold escalation: MUTED — dim heartbeat only, never a gold glow or
+ * shake; holding a hidden-gem card must not telegraph that it's big */
+.pulse-0 .reveal-back { box-shadow: none; animation: none; }
+.pulse-1 .reveal-back { box-shadow: none; animation: gem-heartbeat 1.6s ease-in-out infinite; }
+.pulse-2 .reveal-back { box-shadow: none; animation: gem-heartbeat 1.2s ease-in-out infinite; }
+@keyframes gem-heartbeat {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
 
 /* ---------- front ---------- */
 
@@ -132,4 +195,8 @@
 @media (prefers-reduced-motion: reduce) {
   .reveal-card { transition: none; }
   .shake { animation: none; }
+  .apparent-subtle .reveal-back::after { animation: none; }
+  .apparent-mid .reveal-back { animation: none; }
+  .apparent-blue .reveal-back { animation: none; }
+  .pulse-1 .reveal-back, .pulse-2 .reveal-back { animation: none; }
 }
