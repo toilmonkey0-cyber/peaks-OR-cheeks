@@ -2,12 +2,12 @@
 import argparse
 import json
 import os
-import sys
 from datetime import date
 
 import pandas as pd
 
-from config import SEASON, XFACTOR_COUNT, EA_ENDPOINTS
+from config import (DRAFT_MAX_ROUND, DRAFT_PICKS_PER_ROUND, EA_ENDPOINTS, HTTP_TIMEOUT_S,
+                    ROSTER_STATUSES, SEASON, XFACTOR_COUNT)
 from ratings import fantasy_ppg, rate_defenses, rate_players, tier_of
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -22,29 +22,42 @@ def col(df: pd.DataFrame, *names: str) -> pd.Series | None:
     return None
 
 
+def _clean_str(v) -> str:
+    """str(nan) == 'nan' (NaN is truthy); coalesce None/NaN to '' so no card
+    ever ships a 'nan' team/position/name."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    return str(v)
+
+
 EA_COLUMNS = ["full_name", "team", "position", "overall"]
+
+
+def _normalize_ea_payload(data) -> pd.DataFrame:
+    """EA drop-api payloads wrap the row list in {"items": [...]} and split
+    names into firstName/lastName with overallRating; classic exporter rows
+    (full_name/team/position/overall) pass through unchanged."""
+    rows = data.get("items") if isinstance(data, dict) else data
+    norm_rows = []
+    for r in rows or []:
+        first, last = _clean_str(r.get("firstName")), _clean_str(r.get("lastName"))
+        full = r.get("full_name") or r.get("name") or " ".join(filter(None, (first, last)))
+        norm_rows.append({"full_name": full,
+                          "team": _clean_str(r.get("team_abbr") or r.get("team")),
+                          "position": _clean_str(r.get("position")),
+                          "overall": r.get("overall") or r.get("overallRating") or r.get("rating")})
+    return pd.DataFrame(norm_rows, columns=EA_COLUMNS)
 
 
 def _load_ea() -> pd.DataFrame:
     """Try each configured published-ratings endpoint; degrade to empty on any
     failure so the snapshot still builds with synthetic ratings."""
-    import json as _json
     import urllib.request
 
     for url in EA_ENDPOINTS:
         try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
-                rows = _json.load(resp)
-            if isinstance(rows, dict):  # drop-api wraps lists: {"items": [...]}
-                rows = rows.get("items") or []
-            norm_rows = []
-            for r in rows:
-                first, last = str(r.get("firstName") or "").strip(), str(r.get("lastName") or "").strip()
-                full = r.get("full_name") or r.get("name") or " ".join(filter(None, (first, last)))
-                overall = r.get("overall") or r.get("overallRating") or r.get("rating")
-                norm_rows.append({"full_name": full, "team": r.get("team_abbr") or r.get("team") or "",
-                                  "position": r.get("position") or "", "overall": overall})
-            df = pd.DataFrame(norm_rows, columns=EA_COLUMNS)
+            with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT_S) as resp:
+                df = _normalize_ea_payload(json.load(resp))
             if len(df) and df["overall"].notna().any():
                 return df
         except Exception as e:  # noqa: BLE001 - any endpoint failure falls through
@@ -63,8 +76,9 @@ def _ea_index(ea: pd.DataFrame) -> dict[tuple[str, str, str], int]:
     idx: dict[tuple[str, str, str], int] = {}
     for _, r in ea.iterrows():
         try:
-            key = (_norm_name(str(r.get("full_name") or r.get("name") or "")),
-                   str(r.get("team_abbr") or r.get("team") or ""), str(r.get("position") or ""))
+            key = (_norm_name(_clean_str(r.get("full_name") or r.get("name"))),
+                   _clean_str(r.get("team_abbr") or r.get("team")),
+                   _clean_str(r.get("position")))
             idx[key] = int(r.get("overall") or r.get("rating"))
         except (TypeError, ValueError):
             continue
@@ -85,13 +99,24 @@ def _load_weekly(season: int) -> pd.DataFrame:
         return pd.read_parquet(WEEKLY_URL.format(season=season))
 
 
-def _load_rosters() -> pd.DataFrame:
-    """nfl-data-py 0.3.3 removed import_rosters/import_teams; the seasonal
-    rosters release also renamed columns, so normalize to the classic names
-    build_snapshot expects."""
-    import nfl_data_py as nfl
-    r = nfl.import_seasonal_rosters(years=[SEASON])
+def _draft_round(pick) -> int | None:
+    """Seasonal rosters exposes overall pick, not round; approximate rounds as
+    DRAFT_PICKS_PER_ROUND-pick blocks (comp picks blur round boundaries — close
+    enough for DRAFT_PRIOR). Unknown/undrafted pick (NaN) -> None."""
+    if pick is None or (isinstance(pick, float) and pd.isna(pick)):
+        return None
+    return min((int(pick) - 1) // DRAFT_PICKS_PER_ROUND + 1, DRAFT_MAX_ROUND)
+
+
+def _normalize_rosters(r: pd.DataFrame) -> pd.DataFrame:
+    """2025+ seasonal-rosters schema -> the classic roster columns
+    build_snapshot expects, filtered to the spec §4 card pool: status
+    ACT or RES only (CUT/DEV/RET/INA/EXE/NAV/NFI/PS are all excluded)."""
+    r = r[r["status"].isin(ROSTER_STATUSES)].reset_index(drop=True)
     fallback = (r["first_name"].fillna("") + " " + r["last_name"].fillna("")).str.strip()
+    # object dtype so pandas' type inference doesn't coerce None back to NaN
+    draft_rounds = pd.Series([_draft_round(p) for p in r["draft_number"]],
+                             index=r.index, dtype="object")
     return pd.DataFrame({
         "gsis_id": r["player_id"],
         "full_name": r["player_name"].fillna(fallback),
@@ -99,10 +124,15 @@ def _load_rosters() -> pd.DataFrame:
         "team_abbr": r["team"],
         "jersey_number": r["jersey_number"],
         "age": r["age"],
-        # seasonal rosters exposes overall pick, not round; approximate rounds
-        # as 32-pick blocks (comp picks blur edges - close enough for DRAFT_PRIOR)
-        "draft_round": ((r["draft_number"] - 1) // 32 + 1).clip(upper=7),
+        "draft_round": draft_rounds,
     })
+
+
+def _load_rosters() -> pd.DataFrame:
+    """nfl-data-py 0.3.3 removed import_rosters/import_teams; import the
+    seasonal rosters release and normalize its renamed columns."""
+    import nfl_data_py as nfl
+    return _normalize_rosters(nfl.import_seasonal_rosters(years=[SEASON]))
 
 
 def _load(source: str):
@@ -149,6 +179,15 @@ def _ppg_map(weekly: pd.DataFrame) -> dict[str, float]:
     return {pid: fantasy_ppg(a) for pid, a in _agg(weekly).items()}
 
 
+def _dedup_city(city: str, nick: str) -> str:
+    """team_desc ships the full 'Arizona Cardinals' as team_name; strip a
+    trailing nick so DEF fullName doesn't read 'Cardinals Cardinals Defense'.
+    A city already equal to the nick (or missing either part) is untouched."""
+    if nick and city.endswith(nick) and len(city) > len(nick):
+        return city[: -len(nick)].strip()
+    return city
+
+
 def build_snapshot(rosters: pd.DataFrame, weekly: pd.DataFrame, teams: pd.DataFrame,
                    schedules: pd.DataFrame, prior_weekly: pd.DataFrame,
                    ea: pd.DataFrame, prev_meta: dict | None) -> dict:
@@ -172,7 +211,8 @@ def build_snapshot(rosters: pd.DataFrame, weekly: pd.DataFrame, teams: pd.DataFr
         age = r.get("age")
         players.append({
             "playerId": pid, "name": short, "fullName": full, "position": pos,
-            "team": str(r.get("team_abbr") or r.get("abbr") or r.get("team") or "FA"),
+            # NaN team_abbr is truthy and would str() to "nan"; _clean_str -> "" -> "FA"
+            "team": _clean_str(r.get("team_abbr") or r.get("abbr") or r.get("team")) or "FA",
             "jersey": int(r["jersey_number"]) if not pd.isna(r.get("jersey_number", float("nan"))) else None,
             # NaN age is truthy, so `or 25` alone would crash int(); guard like jersey.
             "age": int(age) if age is not None and not pd.isna(age) and age != 0 else 25,
@@ -254,10 +294,8 @@ def build_snapshot(rosters: pd.DataFrame, weekly: pd.DataFrame, teams: pd.DataFr
     name_col = col(teams, "team_name", "name"); nick_col = col(teams, "team_nick", "nick")
     prim_col = col(teams, "team_color", "primary"); sec_col = col(teams, "team_color2", "secondary")
     for i, t in enumerate(team_abbrs):
-        nick = str(nick_col.iat[i] if nick_col is not None else t)
-        city = str(name_col.iat[i] if name_col is not None else t)
-        if nick and city.endswith(nick):  # team_desc ships "Arizona Cardinals" as name
-            city = city[:-len(nick)].strip()
+        nick = _clean_str(nick_col.iat[i] if nick_col is not None else t)
+        city = _dedup_city(_clean_str(name_col.iat[i] if name_col is not None else t), nick)
         teams_out.append({"abbr": t, "name": nick,
                           "city": city,
                           "primary": "#" + str(prim_col.iat[i]).lstrip("#") if prim_col is not None else "#1f2937",
@@ -273,10 +311,15 @@ def build_snapshot(rosters: pd.DataFrame, weekly: pd.DataFrame, teams: pd.DataFr
                         "fantasyPpg": None, "avatarSeed": f"TEAM-{t}"})
 
     # --- X-Factor: top risers vs prevRatings in meta ---
+    # A riser must actually improve (delta > 0): a no-change rebuild keeps
+    # xfactorIds empty instead of tagging alphabetical-id filler. First launch
+    # (no prior meta) ships [] by design — risers appear from the second
+    # weekly refresh onward.
     prev = (prev_meta or {}).get("prevRatings") or {}
     risers = sorted(
-        ({"id": p["playerId"], "delta": p["rating"] - int(prev.get(p["playerId"], p["rating"]))}
-         for p in players if prev.get(p["playerId"]) is not None),
+        ({"id": p["playerId"], "delta": p["rating"] - int(prev[p["playerId"]])}
+         for p in players if prev.get(p["playerId"]) is not None
+         and p["rating"] - int(prev[p["playerId"]]) > 0),
         key=lambda x: (-x["delta"], x["id"]))[:XFACTOR_COUNT]
     xfactor_ids = [r["id"] for r in risers]
     for p in players:
@@ -285,6 +328,19 @@ def build_snapshot(rosters: pd.DataFrame, weekly: pd.DataFrame, teams: pd.DataFr
 
     return {"builtAt": date.today().isoformat(),
             "players": players, "teams": teams_out, "xfactorIds": xfactor_ids}
+
+
+def _tier_distribution(players: list[dict]) -> dict[str, tuple[int, float]]:
+    """Realized tier counts + percentage shares of the card pool (xfactor
+    replaces the underlying tier in the snapshot, so it counts as its own)."""
+    counts: dict[str, int] = {}
+    for p in players:
+        counts[p["tier"]] = counts.get(p["tier"], 0) + 1
+    n = len(players) or 1
+    return {t: (c, 100.0 * c / n) for t, c in counts.items()}
+
+
+TIER_PRINT_ORDER = ("legend", "elite", "rare", "common", "xfactor")
 
 
 def main() -> None:
@@ -312,6 +368,12 @@ def main() -> None:
     os.replace(os.path.join(DATA_DIR, "meta.json.tmp"), os.path.join(DATA_DIR, "meta.json"))
     print(f"snapshot: {len(snap['players'])} players, {len(snap['teams'])} teams, "
           f"xfactor={snap['xfactorIds']}")
+    # realized tier distribution — printed on every run (live or fixtures) so
+    # pool drift is visible against the ~80/9/5/5 curve-derived target shares
+    dist = _tier_distribution(snap["players"])
+    order = TIER_PRINT_ORDER + tuple(sorted(t for t in dist if t not in TIER_PRINT_ORDER))
+    print("tier distribution: " + ", ".join(
+        f"{t} {dist[t][0]} ({dist[t][1]:.1f}%)" for t in order if t in dist))
 
 
 if __name__ == "__main__":

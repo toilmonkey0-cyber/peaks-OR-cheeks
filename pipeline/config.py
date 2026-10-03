@@ -18,6 +18,13 @@ XFACTOR_COUNT = 5          # top week-over-week rating risers re-tagged each ref
 MIN_POSITION_POOL = 5      # below this, a position group is rated by raw score, no curve
 POOL_FLOOR_RATING = 55     # rating assigned in tiny pools (practice-squad edge cases)
 
+# Loader constants (Task 4 fix round).
+ROSTER_STATUSES = ("ACT", "RES")  # spec §4 card pool: active + reserve/IR only;
+                                  # CUT/DEV/RET/INA/EXE/NAV/NFI/PS are all excluded
+DRAFT_PICKS_PER_ROUND = 32  # seasonal rosters ships overall pick, not round
+DRAFT_MAX_ROUND = 7
+HTTP_TIMEOUT_S = 30         # published-ratings endpoint fetch timeout
+
 # Published-overall endpoints (undocumented ratings-search JSON; discovered and
 # recorded during Task 4 Step 5's first live run). Empty list = synthetic ratings only.
 #

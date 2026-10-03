@@ -57,3 +57,23 @@ def test_build_snapshot_xfactor_risers():
     assert len(bumped["xfactorIds"]) == 5
     tagged = [p for p in bumped["players"] if p["tier"] == "xfactor"]
     assert {p["playerId"] for p in tagged} == set(bumped["xfactorIds"])
+
+
+def test_build_snapshot_no_placeholder_teams():
+    snap = build_snapshot(_load("rosters"), _load("weekly"), _load("teams"),
+                          _load("schedules"), _load("weekly_prior"), _load("ea_ratings"),
+                          prev_meta=None)
+    # every fixture roster row has a real team: NaN leaks must surface as neither
+    # "nan" (str(nan) trap) nor the "FA" fallback
+    assert all(p["team"] not in ("nan", "FA", "") for p in snap["players"])
+
+
+def test_build_snapshot_xfactor_empty_on_no_change_rebuild():
+    args = (_load("rosters"), _load("weekly"), _load("teams"),
+            _load("schedules"), _load("weekly_prior"), _load("ea_ratings"))
+    base = build_snapshot(*args, prev_meta=None)
+    same = build_snapshot(*args, prev_meta={
+        "prevRatings": {p["playerId"]: p["rating"] for p in base["players"]}})
+    # identical data -> all deltas 0 -> no risers, and no alphabetical filler
+    assert same["xfactorIds"] == []
+    assert not any(p["tier"] == "xfactor" for p in same["players"])

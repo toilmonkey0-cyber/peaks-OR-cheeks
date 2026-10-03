@@ -1,0 +1,9 @@
+# pipeline/build.py writes snapshot/meta tmp files to repo-root data/ before
+# os.replace() — the prior pipeline/.gitignore entry never matched this path.
+data/*.tmp
+
+# future app/tooling artifacts (not yet present at time of writing)
+node_modules/
+dist/
+app/test-results/
+app/playwright-report/
