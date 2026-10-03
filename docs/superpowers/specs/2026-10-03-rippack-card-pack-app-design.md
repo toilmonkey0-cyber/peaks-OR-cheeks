@@ -156,8 +156,8 @@ Choreography by tier:
 - **Elite:** hold-to-reveal — press and hold; aura escalates white → blue →
   purple while sound builds; flips on release.
 - **Legend / X-Factor:** screen dims, spotlight, card trembles (CSS transform +
-  `navigator.vibrate` where supported), aura escalates to gold, hold-to-reveal,
-  then fireworks/confetti burst.
+  the §10 haptic vocabulary where supported), aura escalates to gold,
+  hold-to-reveal, then fireworks/confetti burst.
 - **Troll (fake-out):** common card dressed in full Legend effects; deflates on
   flip with "TROLLED" stamp + sad-trombone + **+25 coin consolation**.
 - **Hidden Gem (fake-out):** dull card catches fire at flip, upgrades to a
@@ -195,7 +195,33 @@ the hit for last" rule). Long-press anywhere = skip choreography.
 - Portrait-phone-first layout, thumb-reachable pack button, ≥ 44 px targets;
   tablet/desktop = same screens, wider card grids.
 
-## 10. Performance, errors, freshness
+## 10. Haptics
+
+Vibration is a first-class part of the reveal experience where the platform
+allows it, defined once as a **haptic vocabulary** (pattern constants in a
+single `haptics.ts` module, all calls routed through one `haptic(pattern)`
+wrapper that no-ops when unsupported or toggled off):
+
+| Moment | Pattern (ms on/off) | Feel |
+|---|---|---|
+| Pack grab / rip | `[30, 40, 60]` | sharp rip |
+| Common flip | `[10]` | tick |
+| Rare flip | `[15, 40, 15]` | double tick |
+| Elite hold (loop while held) | `[10]` escalating to `[20, 30, 20]` | rising pulse |
+| Legend / X-Factor reveal | `[40, 30, 40, 30, 90]` | big rumble |
+| Troll deflation | `[50, 50, 20, 50, 8]` | descending sputter |
+| Hidden Gem ignition | `[10, 20, 20, 20, 40]` | rising ignition |
+| Coins awarded | `[8, 30, 8]` | coin tick |
+
+- **Platform truth:** `navigator.vibrate` works on Android browsers (Chrome,
+  Samsung, Firefox); iOS Safari does not support it — iPhone users get the
+  sound + screen choreography (designed to carry the moment alone), and true
+  haptics arrive if/when the native wrapper (§14 roadmap #5) ships.
+- Settings toggle: Haptics on/off (default on); state persisted with the save.
+- Test-enforced: every pattern in the table is a valid `navigator.vibrate`
+  pattern; the wrapper no-ops deterministically when disabled/unsupported.
+
+## 11. Performance, errors, freshness
 
 - Budget: first load ≤ 1.5 MB gzipped incl. data snapshot; snapshot ~≤ 2 MB raw.
 - All reveal animations use transform/opacity only; no layout thrash.
@@ -204,21 +230,22 @@ the hit for last" rule). Long-press anywhere = skip choreography.
   Sep 26 — ask the owner to refresh").
 - Pipeline failure = keep last good snapshot (atomic write via temp+rename).
 
-## 11. Testing
+## 12. Testing
 
 - **Unit (vitest):** odds sum to 100 & match config; seeded pack
   reproducibility; Premium rare-or-better guarantee; dup conversion math;
   fake-out cap and targeting rules; worst-to-best ordering; ratings from stat
   fixtures land on expected rating/tier; avatar determinism (same seed →
   identical pixel output); Zod validation of committed snapshot; localStorage
-  corruption recovery.
+  corruption recovery; haptic pattern validity + wrapper no-op when
+  disabled/unsupported.
 - **Pipeline smoke:** build against `pipeline/fixtures/` offline → snapshot
   passes schema + sanity counts (32 teams, ≥ 1,500 players, every team ≥ 30
   cards).
 - **UI (Playwright smoke):** open pack → all cards revealed → coins/collection
   counters update; build a squad → export text matches squad.
 
-## 12. Trademark & legal posture
+## 13. Trademark & legal posture
 
 - App name, logo, and domain must not contain "NFL" or imply affiliation.
   Tagline style: "pro football card packs".
@@ -228,7 +255,7 @@ the hit for last" rule). Long-press anywhere = skip choreography.
 - Player names + stats are facts; we display them with attribution
   ("Data: nflverse") in Settings.
 
-## 13. Roadmap (explicitly out of v1)
+## 14. Roadmap (explicitly out of v1)
 
 1. Natural-language collection search via an on-device model (Cactus Needle
    class) — deferred; structured filters cover v1.
@@ -238,7 +265,7 @@ the hit for last" rule). Long-press anywhere = skip choreography.
 5. Native wrapper (Tauri/Android) if distribution demands it — architecture
    intentionally keeps this possible.
 
-## 14. Key decisions log
+## 15. Key decisions log
 
 | # | Decision | Date |
 |---|---|---|
@@ -249,3 +276,4 @@ the hit for last" rule). Long-press anywhere = skip choreography.
 | 5 | Reveal Drama: holds, escalating tells, capped fake-outs | 2026-10-03 |
 | 6 | No AI model in v1 (Needle evaluated, deferred) | 2026-10-03 |
 | 7 | Zod schema as pipeline↔app type contract | 2026-10-03 |
+| 8 | Haptic vocabulary, one wrapper, progressive enhancement (Android yes, iOS Safari falls back) | 2026-10-03 |
