@@ -1,5 +1,8 @@
 import math
-from ratings import fantasy_ppg
+
+from config import POOL_FLOOR_RATING
+from ratings import (blend_score, fantasy_ppg, rate_defenses, rate_players,
+                     tier_of)
 
 
 def test_fantasy_ppg_half_ppr_qb():
@@ -14,9 +17,6 @@ def test_fantasy_ppg_receiver_and_zero_games():
     stats = {"games": 0, "pass_yds": 0, "pass_td": 0, "int": 0,
              "rush_yds": 100, "rush_td": 2, "rec": 8, "rec_yds": 120, "rec_td": 1}
     assert fantasy_ppg(stats) == 0.0  # never divide by zero
-
-
-from ratings import blend_score, rate_players, tier_of
 
 
 def test_blend_score_uses_prior_and_draft_prior():
@@ -46,12 +46,7 @@ def test_rate_players_curve_and_tiers():
 def test_rate_players_tiny_pool_floor():
     players = [_player(f"Q{i}", 20 - i, pos="P") for i in range(3)]
     rated = rate_players(players)
-    assert all(p["rating"] == config_rated_floor(p) for p in rated)
-
-
-def config_rated_floor(p):
-    from config import POOL_FLOOR_RATING
-    return POOL_FLOOR_RATING
+    assert all(p["rating"] == POOL_FLOOR_RATING for p in rated)
 
 
 def test_positions_curve_independently():
@@ -59,9 +54,6 @@ def test_positions_curve_independently():
     players = [_player("QB1", 5.0, pos="QB"), _player("PT1", 5.0, pos="P")]
     rated = rate_players(players)
     assert all(p["rating"] == 99 for p in rated)
-
-
-from ratings import rate_defenses
 
 
 def test_rate_defenses_best_and_worst():
@@ -72,3 +64,38 @@ def test_rate_defenses_best_and_worst():
     assert by_team["T31"]["rating"] == 99 and by_team["T31"]["tier"] == "legend"
     assert by_team["T00"]["rating"] == 40 and by_team["T00"]["tier"] == "common"
     assert all(40 <= d["rating"] <= 99 for d in rated)
+
+
+# --- Fix round 1: average-rank ties (order-independent ratings) + tier boundaries ---
+
+
+def test_rate_players_ties_are_order_independent():
+    # Five WRs; the middle three have identical blended scores -> identical ratings.
+    base = [
+        _player("W0", 30.0), _player("W1", 20.0), _player("W2", 20.0),
+        _player("W3", 20.0), _player("W4", 10.0),
+    ]
+    forwards = rate_players([dict(p) for p in base])
+    backwards = rate_players([dict(p) for p in reversed(base)])
+    f = {p["player_id"]: p["rating"] for p in forwards}
+    b = {p["player_id"]: p["rating"] for p in backwards}
+    assert f == b  # permuting input order changes nobody's rating
+    # Tied trio shares the average of rank positions 1,2,3 -> pct 0.5 -> 44.
+    assert f["W1"] == f["W2"] == f["W3"] == 44
+    assert f["W0"] == 99 and f["W4"] == 40
+
+
+def test_tier_boundaries():
+    assert tier_of(69) == "common"
+    assert tier_of(70) == "rare"
+    assert tier_of(79) == "rare"
+    assert tier_of(80) == "elite"
+    assert tier_of(89) == "elite"
+    assert tier_of(90) == "legend"
+    assert tier_of(99) == "legend"
+
+
+def test_tiny_pool_floor_tier_is_common():
+    players = [_player(f"F{i}", 20 - i, pos="P") for i in range(3)]
+    rated = rate_players(players)
+    assert all(p["tier"] == "common" for p in rated)

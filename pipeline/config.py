@@ -11,7 +11,8 @@ TIER_THRESHOLDS = {"legend": 90, "elite": 80, "rare": 70}  # else common
 # Score blending: current season vs prior season fantasy PPG.
 PRIOR_WEIGHT = 0.3
 # Draft-round prior for players with no prior-season PPG (approx prospect PPR PPG).
-DRAFT_PRIOR = {1: 12.0, 2: 9.0, 3: 7.0, 4: 6.0, 5: 5.0, 6: 4.0, 7: 3.5, None: 3.0}
+# No None key: an unknown draft round means no prior signal at all (current season only).
+DRAFT_PRIOR = {1: 12.0, 2: 9.0, 3: 7.0, 4: 6.0, 5: 5.0, 6: 4.0, 7: 3.5}
 
 XFACTOR_COUNT = 5          # top week-over-week rating risers re-tagged each refresh
 MIN_POSITION_POOL = 5      # below this, a position group is rated by raw score, no curve

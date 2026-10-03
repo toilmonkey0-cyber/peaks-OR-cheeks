@@ -39,6 +39,29 @@ def tier_of(rating: int) -> str:
     return "common"
 
 
+def _curve(pct: float) -> int:
+    """Percentile (0..1) -> rating on the RATING_MIN..RATING_MAX curve."""
+    return round(RATING_MIN + (RATING_MAX - RATING_MIN) * pct ** CURVE_EXPONENT)
+
+
+def _pct_rank(values: list[float], higher_better: bool) -> list[float]:
+    """Percentile per value, with average-rank ties: tied values share the
+    average of their rank positions, so ratings never depend on input order."""
+    n = len(values)
+    order = sorted(range(n), key=lambda i: values[i], reverse=higher_better)
+    ranks = [0.0] * n
+    start = 0
+    while start < n:
+        end = start
+        while end + 1 < n and values[order[end + 1]] == values[order[start]]:
+            end += 1
+        avg_pos = (start + end) / 2
+        for k in range(start, end + 1):
+            ranks[order[k]] = (n - 1 - avg_pos) / (n - 1) if n > 1 else 1.0
+        start = end + 1
+    return ranks
+
+
 def rate_players(players: list[dict]) -> list[dict]:
     """Per-position percentile curve: best of each position -> 99, worst -> 40."""
     by_pos: dict[str, list[dict]] = {}
@@ -52,23 +75,11 @@ def rate_players(players: list[dict]) -> list[dict]:
             for p in group:
                 p["rating"], p["tier"] = POOL_FLOOR_RATING, tier_of(POOL_FLOOR_RATING)
             continue
-        scored = sorted(group, key=lambda p: blend_score(p["cur_ppg"], p["prior_ppg"], p["draft_round"]),
-                        reverse=True)
-        n = len(scored)
-        for rank, p in enumerate(scored):
-            pct = (n - 1 - rank) / (n - 1) if n > 1 else 1.0
-            p["rating"] = round(RATING_MIN + (RATING_MAX - RATING_MIN) * pct ** CURVE_EXPONENT)
+        blends = [blend_score(p["cur_ppg"], p["prior_ppg"], p["draft_round"]) for p in group]
+        for p, pct in zip(group, _pct_rank(blends, True)):
+            p["rating"] = _curve(pct)
             p["tier"] = tier_of(p["rating"])
     return players
-
-
-def _pct_rank(values: list[float], higher_better: bool) -> list[float]:
-    order = sorted(range(len(values)), key=lambda i: values[i], reverse=higher_better)
-    ranks = [0.0] * len(values)
-    n = len(values)
-    for pos, i in enumerate(order):
-        ranks[i] = (n - 1 - pos) / (n - 1) if n > 1 else 1.0
-    return ranks
 
 
 def rate_defenses(defs: list[dict]) -> list[dict]:
@@ -77,6 +88,6 @@ def rate_defenses(defs: list[dict]) -> list[dict]:
     pa = _pct_rank([d["points_allowed_per_game"] for d in defs], False)
     for i, d in enumerate(defs):
         composite = (sacks[i] + tk[i] + pa[i]) / 3
-        d["rating"] = round(RATING_MIN + (RATING_MAX - RATING_MIN) * composite ** CURVE_EXPONENT)
+        d["rating"] = _curve(composite)
         d["tier"] = tier_of(d["rating"])
     return defs
