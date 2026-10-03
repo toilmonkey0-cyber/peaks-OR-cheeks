@@ -1,0 +1,191 @@
+/* CardView — base card + tier frames.
+ * Animation budget: keyframes/transition touch background-position, transform,
+ * opacity ONLY (spec perf budget). box-shadow appears only as static values,
+ * never animated. */
+
+.rip-card {
+  position: relative;
+  width: 160px;
+  height: 200px; /* 4:5 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #0b1120; /* dark card body */
+  color: #e5e7eb;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden; /* clip sheen overlays to the rounded card */
+  cursor: default;
+  user-select: none;
+}
+
+/* tier frame overlays live on ::after so the card body stays untouched */
+.rip-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-repeat: repeat;
+}
+
+/* ---------- sizes ---------- */
+
+.rip-card.size-sm { width: 96px; height: 120px; padding: 5px; border-radius: 9px; }
+.rip-card.size-sm .rip-card-name { font-size: 9px; }
+.rip-card.size-sm .rating { font-size: 12px; }
+.rip-card.size-sm .pos-team { font-size: 7px; }
+.rip-card.size-sm .rip-card-stats { display: none; }
+
+.rip-card.size-lg { width: 240px; height: 300px; padding: 14px; border-radius: 16px; }
+.rip-card.size-lg .rip-card-name { font-size: 20px; }
+.rip-card.size-lg .rating { font-size: 26px; }
+.rip-card.size-lg .pos-team { font-size: 13px; }
+.rip-card.size-lg .rip-card-stats { font-size: 12px; }
+
+/* ---------- card internals ---------- */
+
+.rip-card-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.rating {
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.pos-team {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.rip-card-name {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rip-card-stats {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  width: 100%;
+  font-size: 9px;
+}
+
+.rip-card-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 1px 2px;
+}
+
+.stat-label { color: #9ca3af; letter-spacing: 0.04em; }
+.stat-value { font-weight: 700; color: #f9fafb; }
+
+/* ---------- dupe badge ---------- */
+
+.dupe-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #065f46;
+  color: #d1fae5;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* ---------- tier frames ----------
+ * border + ::after overlay; all motion is background-position / opacity. */
+
+.tier-common {
+  border: 2px solid #6b7280; /* gray */
+}
+
+.tier-rare {
+  border: 2px solid #3b82f6; /* blue */
+}
+.tier-rare::after {
+  /* subtle diagonal sheen, slowly drifting */
+  background-image: linear-gradient(115deg,
+    rgba(59, 130, 246, 0.10) 0%, rgba(147, 197, 253, 0.06) 45%, rgba(59, 130, 246, 0.10) 100%);
+  background-size: 200% 200%;
+  animation: rare-sheen 7s linear infinite;
+}
+@keyframes rare-sheen {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+.tier-elite {
+  border: 2px solid #a855f7; /* purple */
+}
+.tier-elite::after {
+  /* stronger sheen */
+  background-image: linear-gradient(115deg,
+    rgba(168, 85, 247, 0.20) 0%, rgba(240, 171, 252, 0.14) 35%, rgba(59, 130, 246, 0.14) 65%, rgba(168, 85, 247, 0.20) 100%);
+  background-size: 220% 220%;
+  animation: elite-sheen 4.5s linear infinite;
+}
+@keyframes elite-sheen {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 220% 220%; }
+}
+
+.tier-legend {
+  border: 2px solid #fbbf24; /* gold */
+}
+.tier-legend::after {
+  /* animated holographic sheen — gold/magenta/cyan sweep, blend overlay */
+  background-image: linear-gradient(115deg,
+    rgba(255, 215, 0, 0.25), rgba(255, 0, 128, 0.2), rgba(0, 200, 255, 0.2));
+  background-size: 300% 300%;
+  mix-blend-mode: overlay;
+  animation: holo 3.2s linear infinite;
+}
+@keyframes holo {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 300% 300%; }
+}
+
+.tier-xfactor {
+  border: 2px solid #ef4444; /* red */
+}
+.tier-xfactor::after {
+  /* red/gold pulse — hue comes from the gradient, the pulse is opacity */
+  background-image: linear-gradient(115deg,
+    rgba(239, 68, 68, 0.28), rgba(251, 191, 36, 0.28), rgba(239, 68, 68, 0.28));
+  background-size: 250% 250%;
+  animation: xfactor-pulse 1.6s ease-in-out infinite;
+}
+@keyframes xfactor-pulse {
+  0% { background-position: 0% 0%; opacity: 0.45; }
+  50% { background-position: 125% 125%; opacity: 1; }
+  100% { background-position: 250% 250%; opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-rare::after,
+  .tier-elite::after,
+  .tier-legend::after,
+  .tier-xfactor::after { animation: none; }
+}
