@@ -23,7 +23,9 @@ function Harness({ initial }: { initial: SaveState }) {
   return <Squad save={save} setSave={setSave} snapshot={snapshot} teams={teams} />;
 }
 
-afterEach(() => {
+afterEach(async () => {
+  // deferred revokes (setTimeout 0) must fire while the URL stubs still exist
+  await new Promise((r) => setTimeout(r, 0));
   vi.restoreAllMocks();
   delete (navigator as { clipboard?: unknown }).clipboard;
   delete (URL as { createObjectURL?: unknown }).createObjectURL;
@@ -97,7 +99,31 @@ describe("Squad screen", () => {
     await waitFor(() => expect(click).toHaveBeenCalled());
     expect(await blob!.text()).toContain("slot,playerId,fullName,position,team,rating,tier");
     expect(await blob!.text()).toContain("QB,q1,Full q1,QB,ARI,90,rare");
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    // revoke is deferred a tick after a.click() — must still happen
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock"));
+  });
+
+  it("a card assigned to one slot is not offered for another slot", () => {
+    render(<Harness initial={ownedSave()} />);
+    fireEvent.click(screen.getByTestId("slot-WR1"));
+    fireEvent.click(screen.getByTestId("pick-w1"));
+    expect(latest!.squad.WR1).toBe("w1");
+    fireEvent.click(screen.getByTestId("slot-WR2"));
+    expect(screen.queryByTestId("pick-w1")).toBeNull(); // already fielded at WR1
+    fireEvent.click(screen.getByTestId("picker-close"));
+    fireEvent.click(screen.getByTestId("slot-WR1")); // its own slot still lists it
+    expect(screen.getByTestId("pick-w1")).toBeInTheDocument();
+  });
+
+  it("remove clears a filled slot and recomputes the OVR", () => {
+    render(<Harness initial={ownedSave()} />);
+    fireEvent.click(screen.getByTestId("slot-QB"));
+    fireEvent.click(screen.getByTestId("pick-q1"));
+    expect(screen.getByText("Squad — OVR 90")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("slot-QB"));
+    fireEvent.click(screen.getByTestId("picker-remove"));
+    expect(latest!.squad.QB).toBeNull();
+    expect(screen.getByText("Squad — OVR 0")).toBeInTheDocument();
   });
 
   it("image export degrades to a toast when canvas 2d is unavailable", () => {

@@ -115,6 +115,11 @@
   cursor: pointer;
 }
 
+.picker-head button.picker-remove {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
 .picker-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));

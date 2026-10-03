@@ -14,17 +14,20 @@ export function Collection({ save, snapshot, teams }: {
   const q = query.trim().toLowerCase();
   const matches = (c: Card) =>
     q === "" || c.fullName.toLowerCase().includes(q) || c.team.toLowerCase().includes(q);
-  const players = snapshot.players.filter(matches);
   const owned = (id: string) => (save.owned[id] ?? 0) > 0;
 
-  // album = { key, title, players } — one section per team or per tier
+  // album = { key, title, all, cards } — one section per team or per tier.
+  // `all` is the unfiltered roster: completion is always computed over it,
+  // search only narrows which cards the grid shows.
   const albums = album === "team"
-    ? snapshot.teams.map((t) => ({
-        key: t.abbr, title: `${t.city} ${t.name}`,
-        cards: players.filter((c) => c.team === t.abbr) }))
-    : TIERS.map((tier) => ({
-        key: tier, title: tier[0].toUpperCase() + tier.slice(1),
-        cards: players.filter((c) => c.tier === tier) }));
+    ? snapshot.teams.map((t) => {
+        const all = snapshot.players.filter((c) => c.team === t.abbr);
+        return { key: t.abbr, title: `${t.city} ${t.name}`, all, cards: all.filter(matches) };
+      })
+    : TIERS.map((tier) => {
+        const all = snapshot.players.filter((c) => c.tier === tier);
+        return { key: tier, title: tier[0].toUpperCase() + tier.slice(1), all, cards: all.filter(matches) };
+      });
   // hide albums the search emptied (no query → keep every album visible)
   const visible = q === "" ? albums : albums.filter((a) => a.cards.length > 0);
 
@@ -42,13 +45,13 @@ export function Collection({ save, snapshot, teams }: {
           onClick={() => setAlbum("tier")}>By Tier</button>
       </div>
       {visible.map((a) => {
-        const have = a.cards.filter((c) => owned(c.playerId)).length;
-        const pct = a.cards.length === 0 ? 0 : Math.round((have / a.cards.length) * 100);
+        const have = a.all.filter((c) => owned(c.playerId)).length;
+        const pct = a.all.length === 0 ? 0 : Math.round((have / a.all.length) * 100);
         return (
           <div key={a.key} className="album">
             <h3 data-testid={`album-${a.key}`} className="album-header">
               <span>{a.title}</span>
-              <span className="album-progress">{have}/{a.cards.length} ({pct}%)</span>
+              <span className="album-progress">{have}/{a.all.length} ({pct}%)</span>
             </h3>
             <div className="album-grid">
               {a.cards.map((c) => (

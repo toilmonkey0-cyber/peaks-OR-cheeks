@@ -30,4 +30,14 @@ describe("Collection", () => {
     expect(screen.getByTestId("card-B1")).toBeInTheDocument();
     expect(screen.queryByTestId("card-A1")).toBeNull();
   });
+  it("search hides cards but never changes the album completion metric", () => {
+    const save: SaveState = { ...freshSave(), owned: { A1: 1 } };
+    render(<Collection save={save} snapshot={snapshot} teams={{}} />);
+    fireEvent.change(screen.getByTestId("collection-search"), { target: { value: "full a1" } });
+    expect(screen.getByTestId("card-A1")).toBeInTheDocument();
+    expect(screen.queryByTestId("card-A2")).toBeNull();
+    // completion stays over the UNFILTERED album: still 1/2 (50%)
+    expect(screen.getByTestId("album-ARI").textContent).toContain("1/2");
+    expect(screen.getByTestId("album-ARI").textContent).toContain("50%");
+  });
 });

@@ -18,13 +18,26 @@ export function Squad({ save, setSave, snapshot, teams }: {
   const ownedCards = useMemo(
     () => snapshot.players.filter((p) => (save.owned[p.playerId] ?? 0) > 0),
     [snapshot, save.owned]);
-  const picks = useMemo(() =>
-    (picking ? ownedCards.filter((c) => canFill(picking, c)) : [])
-      .slice().sort((a, b) => b.rating - a.rating),
-    [picking, ownedCards]);
+  // squads are single-use: a card fielded in one slot is not offered for another
+  // (the card currently in the picked slot stays listed, so it can be re-picked)
+  const picks = useMemo(() => {
+    if (!picking) return [];
+    const elsewhere = new Set(
+      SQUAD_SLOTS.filter((s) => s !== picking)
+        .map((s) => save.squad[s])
+        .filter((id): id is string => id !== null));
+    return ownedCards
+      .filter((c) => canFill(picking, c) && !elsewhere.has(c.playerId))
+      .slice().sort((a, b) => b.rating - a.rating);
+  }, [picking, ownedCards, save.squad]);
 
   function assign(slot: string, playerId: string) {
     setSave((prev) => ({ ...prev, squad: { ...prev.squad, [slot]: playerId } }));
+    setPicking(null);
+  }
+
+  function remove(slot: string) {
+    setSave((prev) => ({ ...prev, squad: { ...prev.squad, [slot]: null } }));
     setPicking(null);
   }
 
@@ -45,7 +58,8 @@ export function Squad({ save, setSave, snapshot, teams }: {
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    // revoke a tick later: revoking in the same tick can abort the download
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   function downloadCsv() {
@@ -88,6 +102,10 @@ export function Squad({ save, setSave, snapshot, teams }: {
           <div className="picker">
             <header className="picker-head">
               <h3>Choose {picking}</h3>
+              {save.squad[picking] != null && (
+                <button data-testid="picker-remove" className="picker-remove"
+                  onClick={() => remove(picking)}>Remove</button>
+              )}
               <button data-testid="picker-close" onClick={() => setPicking(null)}>Close</button>
             </header>
             <div className="picker-list">
