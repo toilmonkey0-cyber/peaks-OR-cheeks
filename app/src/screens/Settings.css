@@ -1,0 +1,59 @@
+/* Settings — rows of controls, attribution block, destructive reset. */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 14px;
+  color: #e5e7eb;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #fbbf24;
+}
+
+.stale-banner {
+  margin: 0;
+  padding: 10px 14px;
+  font-weight: 700;
+  color: #fde68a;
+  background: rgba(180, 83, 9, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 10px;
+}
+
+.settings-about {
+  padding: 12px 14px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+}
+
+.settings-about p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.settings button.danger {
+  font: inherit;
+  font-weight: 700;
+  min-height: 48px;
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.25);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+}
