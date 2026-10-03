@@ -35,17 +35,28 @@ export function openPack(args: {
   const pool = base.length >= spec.size ? base : args.snapshot.players; // widen tiny themes
   const xfactorPool = pool.filter((p) => args.snapshot.xfactorIds.includes(p.playerId));
   const picked: Card[] = [];
+  const pickedIds = new Set<string>();
 
   for (let i = 0; i < spec.size; i++) {
     let tier: Tier = pickTier(rng, spec.odds);
     if (tier === "legend" && xfactorPool.length > 0 && rng() < XFACTOR_SHARE) tier = "xfactor";
-    let card = pickCard(pool.filter((c) => c.tier === tier), rng)
-      ?? pickCard(pool, rng); // pool missing a tier entirely -> any card, slot never empty
-    if ((tier === "legend" || tier === "xfactor") && card && args.ownedIds.has(card.playerId)) {
-      const reroll = pickCard(pool.filter((c) => c.tier === tier && !args.ownedIds.has(c.playerId)), rng);
+    let card = pickCard(pool.filter((c) => c.tier === tier && !pickedIds.has(c.playerId)), rng)
+      ?? pickCard(pool.filter((c) => !pickedIds.has(c.playerId)), rng) // tier out of new players -> any unpicked
+      ?? pickCard(pool, rng); // entire pool already in this pack -> slot never empty
+    // reroll-once applies to the HIT: a legend/xfactor card is worth rerolling
+    // wherever it came from (tier pool, unpicked fallback, or promotion)
+    if (card && (card.tier === "legend" || card.tier === "xfactor") && args.ownedIds.has(card.playerId)) {
+      const tierOfHit = card.tier;
+      const reroll = pickCard(
+        pool.filter((c) => c.tier === tierOfHit && !args.ownedIds.has(c.playerId) && !pickedIds.has(c.playerId)),
+        rng,
+      );
       if (reroll) card = reroll; // else keep dupe; it converts below
     }
-    if (card) picked.push(card);
+    if (card) {
+      picked.push(card);
+      pickedIds.add(card.playerId);
+    }
   }
 
   if (spec.guaranteedRareOrBetter && picked.every((c) => TIER_RANK[c.tier] === 0)) {

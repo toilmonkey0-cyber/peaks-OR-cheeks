@@ -49,21 +49,81 @@ describe("openPack", () => {
     }
   });
 
-  it("flags owned cards as dupes with coin values", () => {
-    const r = openPack({ packType: "premium", seed: "d1", ownedIds: new Set(["L1", "E1", "R1", "R2"]), snapshot: snap });
-    const legendDupe = r.dupesConverted.find((d) => d.playerId === "L1");
-    if (r.cards.some((c) => c.playerId === "L1")) expect(legendDupe?.coins).toBe(200);
-    expect(r.dupesConverted.every((d) => d.coins === ({ common: 10, rare: 25, elite: 75, legend: 200, xfactor: 200 } as Record<Tier, number>)[r.cards.find((c) => c.playerId === d.playerId)!.tier])).toBe(true);
+  it("flags every drawn card as a dupe at its exact tier value when all are owned", () => {
+    const values: Record<Tier, number> = { common: 10, rare: 25, elite: 75, legend: 200, xfactor: 200 };
+    const owned = new Set(snap.players.map((p) => p.playerId));
+    for (let i = 0; i < 50; i++) {
+      const r = openPack({ packType: i % 2 ? "standard" : "premium", seed: `dv-${i}`, ownedIds: owned, snapshot: snap });
+      expect(r.dupesConverted).toHaveLength(r.cards.length); // unconditional: every drawn card is owned
+      for (const d of r.dupesConverted) {
+        const drawn = r.cards.find((c) => c.playerId === d.playerId)!;
+        expect(d.coins).toBe(values[drawn.tier]);
+      }
+    }
   });
 
-  it("rerolls a duplicate legend once, then converts", () => {
-    // L1 owned; every legend hit should either avoid L1 or convert it
-    const r = openPack({ packType: "premium", seed: "l9", ownedIds: new Set(["L1"]), snapshot: snap });
-    expect(r.cards.length).toBe(3); // never short a slot
+  it("never repeats a player within a pack (200 seeds)", () => {
+    for (let i = 0; i < 200; i++) {
+      const std = openPack({ packType: "standard", seed: `nd-${i}`, ownedIds: new Set(), snapshot: snap });
+      const prem = openPack({ packType: "premium", seed: `nd-${i}`, ownedIds: new Set(), snapshot: snap });
+      const theme = openPack({ packType: "theme", seed: `nd-${i}`, ownedIds: new Set(), snapshot: snap, themePositions: ["QB"] });
+      expect(std.cards).toHaveLength(5);
+      expect(prem.cards).toHaveLength(3);
+      expect(theme.cards).toHaveLength(5);
+      for (const r of [std, prem, theme]) {
+        const ids = r.cards.map((c) => c.playerId);
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+    }
   });
 
   it("theme pack filters by position", () => {
     const r = openPack({ packType: "theme", seed: "t1", ownedIds: new Set(), snapshot: snap, themePositions: ["QB"] });
     expect(r.cards.every((c) => c.position === "QB")).toBe(true);
+  });
+});
+
+describe("legend/xfactor dupe handling (all-big pools make big hits certain)", () => {
+  const bigSnap = (ids: string[], tier: Tier): Snapshot => ({
+    builtAt: "2026-10-03", teams: [], xfactorIds: tier === "xfactor" ? ids : [],
+    players: ids.map((id, i) => card(id, tier, 90 + i)),
+  });
+
+  it("rerolls an owned legend whenever a non-owned legend is unpicked", () => {
+    // 6 legends, only L1 owned, packs of 5/3: a non-owned legend is ALWAYS available
+    // to reroll to, so the owned one can never survive into the pack.
+    const s = bigSnap(["L1", "L2", "L3", "L4", "L5", "L6"], "legend");
+    const owned = new Set(["L1"]);
+    for (let i = 0; i < 100; i++) {
+      for (const packType of ["standard", "premium"] as const) {
+        const r = openPack({ packType, seed: `rr-${i}`, ownedIds: owned, snapshot: s });
+        expect(r.cards.some((c) => c.playerId === "L1")).toBe(false);
+        expect(r.dupesConverted).toHaveLength(0);
+        const ids = r.cards.map((c) => c.playerId);
+        expect(new Set(ids).size).toBe(ids.length);
+      }
+    }
+  });
+
+  it("keeps the dupe and converts at 200 when every legend is owned", () => {
+    // Reroll pool empty by construction -> the drawn dupe is kept and converts.
+    const s = bigSnap(["L1", "L2", "L3"], "legend");
+    const owned = new Set(["L1", "L2", "L3"]);
+    const r = openPack({ packType: "premium", seed: "all-owned", ownedIds: owned, snapshot: s });
+    expect(r.cards).toHaveLength(3);
+    expect(r.cards.every((c) => owned.has(c.playerId))).toBe(true);
+    expect(r.dupesConverted).toHaveLength(3);
+    expect(r.dupesConverted.every((d) => d.coins === 200)).toBe(true);
+    expect(new Set(r.dupesConverted.map((d) => d.playerId))).toEqual(owned);
+  });
+
+  it("converts an xfactor dupe at 200 as well", () => {
+    const s = bigSnap(["X1", "X2", "X3"], "xfactor");
+    const owned = new Set(["X1", "X2", "X3"]);
+    const r = openPack({ packType: "premium", seed: "xf-owned", ownedIds: owned, snapshot: s });
+    expect(r.cards).toHaveLength(3);
+    expect(r.cards.every((c) => c.tier === "xfactor" && owned.has(c.playerId))).toBe(true);
+    expect(r.dupesConverted).toHaveLength(3);
+    expect(r.dupesConverted.every((d) => d.coins === 200)).toBe(true);
   });
 });

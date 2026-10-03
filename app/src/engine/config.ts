@@ -20,3 +20,5 @@ export const XFACTOR_SHARE = 0.2;   // share of legend hits drawn from the xfact
 export const FAKEOUT_CHANCE = 0.125; // chance a pack gets one troll/gem fake-out reveal
 export const STARTING_COINS = 500;
 export const TIER_RANK: Record<Tier, number> = { common: 0, rare: 1, elite: 2, legend: 3, xfactor: 4 };
+export const GEM_MIN_RANK = TIER_RANK.legend; // rarest slot must be legend/xfactor to earn a gem
+export const FAKEOUT_SPLIT = 0.5;             // gem-vs-troll coin flip when the rarest slot is gem-eligible

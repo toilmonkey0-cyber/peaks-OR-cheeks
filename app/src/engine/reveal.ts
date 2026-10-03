@@ -1,5 +1,5 @@
 import type { Card } from "@/data/schema";
-import { TIER_RANK, FAKEOUT_CHANCE } from "./config";
+import { TIER_RANK, FAKEOUT_CHANCE, GEM_MIN_RANK, FAKEOUT_SPLIT } from "./config";
 
 export type RevealScript = "standard" | "escalated" | "troll" | "gem";
 
@@ -16,10 +16,10 @@ export function assignScripts(cards: Card[], rng: () => number): RevealScript[] 
 
   const commonIdx = cards.map((c, i) => (c.tier === "common" ? i : -1)).filter((i) => i >= 0);
   const last = cards.length - 1;
-  const rarestIsBig = cards.length > 0 && isBig(cards[last]) && TIER_RANK[cards[last].tier] >= 3;
+  const rarestIsBig = cards.length > 0 && isBig(cards[last]) && TIER_RANK[cards[last].tier] >= GEM_MIN_RANK;
 
   if (rarestIsBig && commonIdx.length > 0) {
-    if (rng() < 0.5) scripts[last] = "gem";
+    if (rng() < FAKEOUT_SPLIT) scripts[last] = "gem";
     else scripts[commonIdx[Math.floor(rng() * commonIdx.length)]] = "troll";
   } else if (rarestIsBig) {
     scripts[last] = "gem";
