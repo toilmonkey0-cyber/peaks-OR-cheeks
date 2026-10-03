@@ -4,6 +4,7 @@ import { loadSave, writeSave, type SaveState } from "./storage/storage";
 import { Home } from "./screens/Home";
 import { Packs } from "./screens/Packs";
 import { Collection } from "./screens/Collection";
+import { Squad } from "./screens/Squad";
 
 const snap = loadSnapshot();
 const teams = Object.fromEntries(snap.teams.map((t) => [t.abbr, t]));
@@ -24,7 +25,7 @@ export function App() {
         {tab === "home" && <Home save={save} goPacks={() => setTab("packs")} />}
         {tab === "packs" && <Packs save={save} setSave={setSave} snapshot={snap} />}
         {tab === "collection" && <Collection save={save} snapshot={snap} teams={teams} />}
-        {tab === "squad" && <section data-testid="screen-squad" />}
+        {tab === "squad" && <Squad save={save} setSave={setSave} snapshot={snap} teams={teams} />}
         {tab === "settings" && <section data-testid="screen-settings" />}
       </main>
       <nav className="tabbar">
