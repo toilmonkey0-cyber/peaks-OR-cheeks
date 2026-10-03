@@ -24,3 +24,4 @@ export const STREAK_CAP = 250; // max daily streak bonus
 export const TIER_RANK: Record<Tier, number> = { common: 0, rare: 1, elite: 2, legend: 3, xfactor: 4 };
 export const GEM_MIN_RANK = TIER_RANK.legend; // rarest slot must be legend/xfactor to earn a gem
 export const FAKEOUT_SPLIT = 0.5;             // gem-vs-troll coin flip when the rarest slot is gem-eligible
+export const TROLL_COINS = 25;                // consolation coins when a troll fake-out resolves

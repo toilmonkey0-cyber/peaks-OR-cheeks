@@ -1,0 +1,135 @@
+/* RevealCard — reveal choreography surface.
+ * Animation budget: keyframes/transition touch transform (and opacity) ONLY.
+ * box-shadow appears as static per-state values (glow intensity stepped by
+ * hold-0/1/2 class swaps), never animated. */
+
+.reveal-card {
+  position: relative;
+  width: 240px;
+  height: 300px;
+  perspective: 900px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transform-style: preserve-3d;
+  transition: transform 450ms ease-in-out;
+}
+
+/* the flip: surface rotates once the card is revealed; the front face is
+ * pre-rotated 180deg so it reads correctly at the end of the rotation */
+.reveal-card.flipped {
+  transform: rotateY(180deg);
+}
+
+/* ---------- card back ---------- */
+
+.reveal-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  /* dark, team-neutral diagonal pinstripe pattern */
+  background:
+    repeating-linear-gradient(115deg,
+      #111827 0px, #111827 10px,
+      #1f2937 10px, #1f2937 20px);
+  border: 2px solid #374151;
+}
+
+.rip-logo {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #f9fafb;
+  opacity: 0.9;
+}
+
+/* ---------- apparent tier effects (face-down) ---------- */
+
+/* big: gold aura — legend-level fake glow */
+.apparent-big .reveal-back {
+  border-color: #fbbf24;
+  box-shadow: 0 0 24px 4px rgba(251, 191, 36, 0.55);
+}
+
+/* dull: deliberately flat gray */
+.apparent-dull .reveal-back {
+  border-color: #4b5563;
+  box-shadow: none;
+  filter: grayscale(0.4);
+}
+
+/* shake: transform-only jitter for fake-out tension */
+.shake {
+  animation: shake 0.5s ease-in-out infinite;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0) rotateY(0deg); }
+  20% { transform: translateX(-4px) rotateY(-2deg); }
+  40% { transform: translateX(4px) rotateY(2deg); }
+  60% { transform: translateX(-3px) rotateY(-1deg); }
+  80% { transform: translateX(3px) rotateY(1deg); }
+}
+
+/* hold escalation: stepped glow intensity, static per level */
+.hold-0 .reveal-back { box-shadow: 0 0 10px 1px rgba(251, 191, 36, 0.25); }
+.hold-1 .reveal-back { box-shadow: 0 0 22px 6px rgba(251, 191, 36, 0.55); }
+.hold-2 .reveal-back { box-shadow: 0 0 38px 12px rgba(251, 191, 36, 0.9); }
+
+/* ---------- front ---------- */
+
+.reveal-front {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- outcome stamps ---------- */
+
+.stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  border: 3px solid currentColor;
+  z-index: 3;
+}
+
+.stamp.troll {
+  color: #ef4444;
+  background: rgba(17, 24, 39, 0.85);
+}
+
+.stamp.gem {
+  color: #fbbf24;
+  background: rgba(17, 24, 39, 0.85);
+}
+
+/* the +25 coin chip inside the troll stamp */
+.stamp.troll span {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 16px;
+  background: #065f46;
+  color: #d1fae5;
+  border: 1px solid #34d399;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-card { transition: none; }
+  .shake { animation: none; }
+}
