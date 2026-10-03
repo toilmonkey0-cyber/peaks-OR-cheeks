@@ -4,5 +4,7 @@ import { defineConfig } from 'vitest/config'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: { alias: { "@": "/src" } },
+  server: { fs: { allow: [".."] } },
   test: { environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], globals: true },
 })
