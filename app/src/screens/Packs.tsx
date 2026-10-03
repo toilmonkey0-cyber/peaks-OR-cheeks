@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Card, Snapshot } from "@/data/schema";
 import { openPack, type PackResult, type PackType } from "@/engine/pack";
 import { PACK_CONFIG, TROLL_COINS } from "@/engine/config";
@@ -8,7 +8,7 @@ import { haptic, HAPTICS } from "@/haptics/haptics";
 import { RevealCard } from "@/components/RevealCard";
 
 export function Packs({ save, setSave, snapshot }: {
-  save: SaveState; setSave: (s: SaveState) => void; snapshot: Snapshot; }) {
+  save: SaveState; setSave: React.Dispatch<React.SetStateAction<SaveState>>; snapshot: Snapshot; }) {
   const [flow, setFlow] = useState<{ result: PackResult; skip: boolean } | null>(null);
   const [themePositions, setThemePositions] = useState<string[]>(["RB"]);
   const dailyFree = save.lastDailyClaim !== new Date().toISOString().slice(0, 10);
@@ -60,6 +60,8 @@ function PackFlow({ flow, setFlow }: {
   const [idx, setIdx] = useState(0);
   const [skip, setSkip] = useState(flow.skip);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // a pending hold timer must never fire after the flow unmounts
+  useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
   const result = flow.result;
   const card: Card | undefined = result.cards[idx];
 

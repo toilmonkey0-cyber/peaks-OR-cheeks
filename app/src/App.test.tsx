@@ -9,6 +9,15 @@ describe("App shell", () => {
       expect(screen.getByRole("button", { name: tab })).toBeInTheDocument();
     expect(screen.getByTestId("coin-balance").textContent).toContain("500");
   });
+  it("marks the current tab with aria-current and the active class", () => {
+    render(<App />);
+    expect(screen.getByRole("button", { name: "Home" })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(screen.getByRole("button", { name: "Collection" }));
+    expect(screen.getByRole("button", { name: "Collection" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Collection" })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "Home" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByTestId("screen-collection")).toBeInTheDocument();
+  });
   it("first (free daily) standard pack reveals 5 cards and keeps coins troll-tolerant", async () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Packs" }));
