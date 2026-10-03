@@ -70,8 +70,16 @@ visit.
 | What | Source | Why |
 |---|---|---|
 | Weekly rosters, positions, ages, jersey numbers, status | nflverse `weekly_rosters` (NFL Shield v2 derived, updated weekly) | Free, current, canonical |
-| Season + weekly player stats | nflverse (via `nfl_data_py` or direct release parquet/CSV) | Real production drives ratings |
+| Season + weekly player stats | nflverse (via `nfl_data_py` or direct release parquet/CSV) | Real production drives fallback ratings |
+| **Player overall ratings (primary)** | EA's publicly published player-ratings database (updated weekly all season; no official API — the ratings search page's undocumented JSON endpoint, community-scraped for years) | Users build rosters in that game; a matching OVR is instantly recognized as "the real number." Shown as "OVR" in-app; source game never named in UI |
 | Team names, colors (primary/secondary) | nflverse `teams` dataset | Real colors, no logos needed |
+
+**EA-ratings integration rules:** match by normalized full name + team + position;
+matched players take the published overall as their card rating verbatim (already
+position-normalized 40–99); unmatched players (and all team DEF cards) use the
+computed stats curve below. If the EA endpoint is unreachable or malformed, the
+pipeline logs a warning and ships synthetic ratings for everyone — never a failed
+build. Attribution in Settings only: "Overalls: publicly published game ratings."
 
 - Sleeper API (`api.sleeper.app/v1/players/nfl`, no auth) is the designated
   fallback if a roster field is missing, and a documented future supplement.
@@ -105,12 +113,19 @@ Card = {
 }
 ```
 
-**Rating methodology (pipeline, pure + tested):** positional composite from
-real production — current season weighted 70%, prior season 30% (rookies: 100%
-current + prospect prior from draft position). Normalized per position to a
-40–99 scale so each position has a full curve (i.e., the #1 QB and #1 P both
-approach 99; replacement level ≈ 45). Exact formula lives in `ratings.py` with
-fixtures; thresholds:
+**Rating methodology (pipeline, pure + tested):** two tiers of truth —
+
+1. **Primary: published game overalls.** Where an EA-published rating matches
+   (name + team + position), it IS the card rating, displayed as "OVR". This is
+   the number the audience compares against, position-normalized by its own
+   methodology and updated weekly.
+2. **Fallback: positional composite from real production** — current season
+   weighted 70%, prior season 30% (rookies: 100% current + draft-round prospect
+   prior), normalized per position to a 40–99 scale so each position has a full
+   curve. Team DEF cards always use this path (composite of sacks, takeaways,
+   points allowed across the 32 teams).
+
+Exact formula lives in `ratings.py` with fixtures; thresholds:
 
 | Tier | Threshold | Expected pool share |
 |---|---|---|
@@ -121,6 +136,9 @@ fixtures; thresholds:
 | X-Factor | top 5 biggest week-over-week rating risers, re-tagged each refresh | 5 cards |
 
 Numbers above are **tunable constants** in one config file, not scattered magic.
+Because published overalls cluster differently than the fallback curve (more
+players in the 70–85 band), the first live run must print the realized tier
+distribution and thresholds re-tuned if shares drift far from the table.
 
 Because ratings are real, a breakout rookie's card genuinely *becomes* Elite at
 the next refresh — the chase is real, not manufactured.
@@ -253,7 +271,10 @@ wrapper that no-ops when unsupported or toggled off):
   standard and low-risk. **No logos, no photos, no player headshots**, no
   video game trademarks (never say Madden in-app).
 - Player names + stats are facts; we display them with attribution
-  ("Data: nflverse") in Settings.
+  ("Data: nflverse") in Settings. Player overall ratings are likewise publicly
+  published factual data from a third-party game: used verbatim, labeled "OVR",
+  **the source game is never named in-app** (no name, logo, copy, or store
+  metadata), with Settings-only attribution.
 
 ## 14. Roadmap (explicitly out of v1)
 
@@ -277,3 +298,4 @@ wrapper that no-ops when unsupported or toggled off):
 | 6 | No AI model in v1 (Needle evaluated, deferred) | 2026-10-03 |
 | 7 | Zod schema as pipeline↔app type contract | 2026-10-03 |
 | 8 | Haptic vocabulary, one wrapper, progressive enhancement (Android yes, iOS Safari falls back) | 2026-10-03 |
+| 9 | Published game overalls as primary rating ("OVR", source never named in UI); stats curve as fallback + DEF | 2026-10-03 |
