@@ -60,3 +60,23 @@ def rate_players(players: list[dict]) -> list[dict]:
             p["rating"] = round(RATING_MIN + (RATING_MAX - RATING_MIN) * pct ** CURVE_EXPONENT)
             p["tier"] = tier_of(p["rating"])
     return players
+
+
+def _pct_rank(values: list[float], higher_better: bool) -> list[float]:
+    order = sorted(range(len(values)), key=lambda i: values[i], reverse=higher_better)
+    ranks = [0.0] * len(values)
+    n = len(values)
+    for pos, i in enumerate(order):
+        ranks[i] = (n - 1 - pos) / (n - 1) if n > 1 else 1.0
+    return ranks
+
+
+def rate_defenses(defs: list[dict]) -> list[dict]:
+    sacks = _pct_rank([d["sacks"] for d in defs], True)
+    tk = _pct_rank([d["takeaways"] for d in defs], True)
+    pa = _pct_rank([d["points_allowed_per_game"] for d in defs], False)
+    for i, d in enumerate(defs):
+        composite = (sacks[i] + tk[i] + pa[i]) / 3
+        d["rating"] = round(RATING_MIN + (RATING_MAX - RATING_MIN) * composite ** CURVE_EXPONENT)
+        d["tier"] = tier_of(d["rating"])
+    return defs

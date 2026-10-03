@@ -59,3 +59,16 @@ def test_positions_curve_independently():
     players = [_player("QB1", 5.0, pos="QB"), _player("PT1", 5.0, pos="P")]
     rated = rate_players(players)
     assert all(p["rating"] == 99 for p in rated)
+
+
+from ratings import rate_defenses
+
+
+def test_rate_defenses_best_and_worst():
+    defs = [{"team": f"T{i:02d}", "sacks": 10 + i, "takeaways": 5 + i,
+             "points_allowed_per_game": 30 - i} for i in range(32)]
+    rated = rate_defenses(defs)
+    by_team = {d["team"]: d for d in rated}
+    assert by_team["T31"]["rating"] == 99 and by_team["T31"]["tier"] == "legend"
+    assert by_team["T00"]["rating"] == 40 and by_team["T00"]["tier"] == "common"
+    assert all(40 <= d["rating"] <= 99 for d in rated)
