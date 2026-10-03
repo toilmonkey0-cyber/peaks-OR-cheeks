@@ -1,0 +1,19 @@
+[project]
+name = "rippack-pipeline"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "nfl-data-py>=0.3.3",
+    "pandas>=2.3.3",
+]
+
+# nfl-data-py 0.3.3 pins pandas<2.0, but pandas 1.x has no Python 3.12
+# support (no cp312 wheels; source build fails). Its code only uses
+# pandas-2-safe APIs (read_parquet/read_csv/concat/merge), so relax the pin.
+[tool.uv]
+override-dependencies = ["pandas>=2.2,<3"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
