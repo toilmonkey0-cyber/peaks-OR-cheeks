@@ -1,0 +1,87 @@
+import { useRef, useState } from "react";
+import type { Card, Snapshot } from "@/data/schema";
+import { openPack, type PackResult, type PackType } from "@/engine/pack";
+import { PACK_CONFIG, TROLL_COINS } from "@/engine/config";
+import { applyDaily, totalDupeCoins } from "@/engine/economy";
+import type { SaveState } from "@/storage/storage";
+import { haptic, HAPTICS } from "@/haptics/haptics";
+import { RevealCard } from "@/components/RevealCard";
+
+export function Packs({ save, setSave, snapshot }: {
+  save: SaveState; setSave: (s: SaveState) => void; snapshot: Snapshot; }) {
+  const [flow, setFlow] = useState<{ result: PackResult; skip: boolean } | null>(null);
+  const [themePositions, setThemePositions] = useState<string[]>(["RB"]);
+  const dailyFree = save.lastDailyClaim !== new Date().toISOString().slice(0, 10);
+
+  function buy(packType: PackType) {
+    const cost = packType === "standard" && dailyFree ? 0 : PACK_CONFIG[packType].cost;
+    if (save.coins < cost) return;
+    haptic(HAPTICS.rip);
+    const result = openPack({ packType, seed: crypto.randomUUID(),
+      ownedIds: new Set(Object.keys(save.owned)), snapshot,
+      themePositions: packType === "theme" ? themePositions : undefined });
+    const trollCount = result.scripts.filter((s) => s === "troll").length;
+    const gained = totalDupeCoins(result.dupesConverted) + trollCount * TROLL_COINS;
+    const owned = { ...save.owned };
+    for (const c of result.cards) owned[c.playerId] = (owned[c.playerId] ?? 0) + 1;
+    // free daily pack claims the day AND banks the streak bonus in the same action
+    let coins = save.coins, streak = save.streak, lastDailyClaim = save.lastDailyClaim;
+    if (cost === 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      ({ coins, streak, lastDailyClaim } = applyDaily(
+        { coins: save.coins, streak: save.streak, lastDailyClaim: save.lastDailyClaim }, today));
+    }
+    setSave({ ...save, coins: coins - cost + gained, owned, streak, lastDailyClaim });
+    setFlow({ result, skip: false });
+  }
+
+  if (flow) return <PackFlow flow={flow} setFlow={setFlow} />;
+
+  return (
+    <section className="packs">
+      {dailyFree && <button data-testid="buy-standard" className="free" onClick={() => buy("standard")}>
+        FREE DAILY — Standard Pack</button>}
+      {!dailyFree && <button data-testid="buy-standard" disabled={save.coins < PACK_CONFIG.standard.cost} onClick={() => buy("standard")}>
+        Standard Pack — {PACK_CONFIG.standard.cost} 🪙</button>}
+      <button data-testid="buy-premium" disabled={save.coins < PACK_CONFIG.premium.cost} onClick={() => buy("premium")}>
+        Premium Pack — {PACK_CONFIG.premium.cost} 🪙</button>
+      <button data-testid="buy-theme" disabled={save.coins < PACK_CONFIG.theme.cost} onClick={() => buy("theme")}>
+        Theme Pack ({themePositions.join("/")}) — {PACK_CONFIG.theme.cost} 🪙</button>
+      <select data-testid="theme-select" value={themePositions[0]}
+        onChange={(e) => setThemePositions([e.target.value])}>
+        {["QB", "RB", "WR", "TE", "K"].map((p) => <option key={p}>{p}</option>)}
+      </select>
+    </section>
+  );
+}
+
+function PackFlow({ flow, setFlow }: {
+  flow: { result: PackResult; skip: boolean }; setFlow: (f: { result: PackResult; skip: boolean } | null) => void; }) {
+  const [idx, setIdx] = useState(0);
+  const [skip, setSkip] = useState(flow.skip);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const result = flow.result;
+  const card: Card | undefined = result.cards[idx];
+
+  if (!card) {
+    const dupCoins = totalDupeCoins(result.dupesConverted);
+    return (
+      <section data-testid="pack-summary" className="pack-summary">
+        {result.cards.map((c) => <div key={c.playerId}>{c.name} ({c.tier})</div>)}
+        {dupCoins > 0 && <p>Duplicates → +{dupCoins} 🪙</p>}
+        <button data-testid="summary-done" onClick={() => setFlow(null)}>Done</button>
+      </section>
+    );
+  }
+  return (
+    <section data-testid="pack-flow" className="pack-flow"
+      onPointerDown={() => { pressTimer.current = setTimeout(() => setSkip(true), 400); }}
+      onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}>
+      {/* key={idx}: RevealCard holds per-card state (revealed/doneRef) that must
+          reset for every card — without the remount the second card never finishes */}
+      <RevealCard key={idx} card={card} script={result.scripts[idx]} skip={skip}
+        onDone={() => setIdx(idx + 1)} />
+      <p className="hint">{skip ? "" : "hold anywhere to fast-forward"}</p>
+    </section>
+  );
+}
