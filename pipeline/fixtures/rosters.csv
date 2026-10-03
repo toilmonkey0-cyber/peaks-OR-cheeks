@@ -1,0 +1,12 @@
+gsis_id,full_name,position,team_abbr,jersey_number,age,draft_round
+00-001,Alpha One,QB,ARI,1,26,1
+00-002,Bravo Two,RB,ARI,28,24,2
+00-003,Charlie Three,WR,ARI,11,27,3
+00-004,Delta Four,WR,ARI,12,25,4
+00-005,Echo Five,WR,ARI,13,23,5
+00-006,Foxtrot Six,TE,ARI,85,26,6
+00-007,Golf Seven,QB,BUF,7,28,7
+00-008,Hotel Eight,RB,BUF,30,25,1
+00-009,India Nine,WR,BUF,13,24,2
+00-010,Juliet Ten,WR,BUF,14,25,3
+00-011,Kilo Eleven,TE,BUF,84,27,4

@@ -1,0 +1,14 @@
+player_id,position,recent_team,passing_yards,passing_tds,interceptions,rushing_yards,rushing_tds,receptions,receiving_yards,receiving_tds,sacks
+00-001,QB,ARI,280,2,1,0,0,0,0,0,0
+00-002,RB,ARI,0,0,0,95,1,4,40,0,0
+00-003,WR,ARI,0,0,0,0,0,8,120,1,0
+00-004,WR,ARI,0,0,0,0,0,5,60,0,0
+00-005,WR,ARI,0,0,0,0,0,3,35,0,0
+00-006,TE,ARI,0,0,0,0,0,4,45,0,0
+00-007,QB,BUF,240,1,2,10,0,0,0,0,0
+00-008,RB,BUF,0,0,0,70,0,6,55,1,0
+00-009,WR,BUF,0,0,0,0,0,7,90,1,0
+00-010,WR,BUF,0,0,0,0,0,6,75,0,0
+00-011,TE,BUF,0,0,0,0,0,5,50,0,0
+00-012,LB,ARI,0,0,0,0,0,0,0,0,1.0
+00-012,LB,ARI,0,0,0,0,0,0,0,0,0.5
