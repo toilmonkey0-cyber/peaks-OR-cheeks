@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -33,5 +33,8 @@ export default defineConfig({
   ],
   resolve: { alias: { "@": "/src" } },
   server: { fs: { allow: [".."] } },
-  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], globals: true },
+  // e2e/ holds Playwright specs (npm run e2e); vitest's default *.spec.ts glob
+  // would pick them up and fail to load them under the vitest runner
+  test: { environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], globals: true,
+          exclude: [...configDefaults.exclude, 'e2e/**'] },
 })
