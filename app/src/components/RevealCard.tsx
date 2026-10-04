@@ -46,7 +46,10 @@ export function RevealCard({ card, script, skip, onDone }: {
         // flushSync: interval callbacks commit async via the scheduler, but the
         // pointerUp handler must see the committed hold level immediately.
         flushSync(() => { setHoldLevel(lvl); });
-        haptic(holdPulse(lvl));
+        // gem fake-out: the haptic channel mirrors the gemMute guard — a flat
+        // subtle tick every pulse, never the escalating holdPulse shape that
+        // would telegraph a big card through vibration (controller ruling).
+        haptic(script === "gem" ? HAPTICS.tick : holdPulse(lvl));
       }, 400);
     }
   };

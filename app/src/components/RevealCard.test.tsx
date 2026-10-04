@@ -132,4 +132,23 @@ describe("RevealCard round-1 fixes", () => {
     expect(cls).toContain("hold-2");
     expect(cls).toContain("shake");
   });
+  it("gem hold haptics stay flat — only [10] ticks, never holdPulse shapes; escalated legend escalates", () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    const { unmount } = render(<RevealCard card={legend} script="gem" skip={false} onDone={() => {}} />);
+    fireEvent.pointerDown(screen.getByTestId("reveal-surface"));
+    vi.advanceTimersByTime(1300); // interval ticks at 400/800/1200ms — past holdPulse(2) territory
+    // snapshot BEFORE pointerUp so the release haptic (HAPTICS.gem) is excluded
+    const duringHold = vibrate.mock.calls.slice();
+    expect(duringHold.length).toBeGreaterThan(0);
+    for (const call of duringHold) expect(call[0]).toEqual([10]); // HAPTICS.tick, flat
+    expect(duringHold.some((c) => JSON.stringify(c[0]) === JSON.stringify([20, 30, 20]))).toBe(false);
+    unmount();
+    vibrate.mockClear();
+    render(<RevealCard card={legend} script="escalated" skip={false} onDone={() => {}} />);
+    fireEvent.pointerDown(screen.getByTestId("reveal-surface"));
+    vi.advanceTimersByTime(1300);
+    const shapes = vibrate.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(shapes).toContain(JSON.stringify([20, 30, 20])); // holdPulse(2) still escalates
+  });
 });

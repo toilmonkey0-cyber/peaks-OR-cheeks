@@ -10,6 +10,13 @@ describe("committed snapshot", () => {
     expect(snap.players.every((p) => p.avatarSeed === p.playerId)).toBe(true);
     expect(new Set(snap.xfactorIds).size).toBeLessThanOrEqual(5);
   });
+  it("spec §12 sanity: every team has at least 30 cards", () => {
+    const snap = loadSnapshot();
+    for (const t of snap.teams) {
+      const cards = snap.players.filter((p) => p.team === t.abbr).length;
+      expect(cards, `team ${t.abbr}`).toBeGreaterThanOrEqual(30);
+    }
+  });
   it("rejects a card with a bad tier", () => {
     expect(() => SnapshotSchema.parse({ builtAt: "2026-10-03", players: [{
       playerId: "x", name: "X", fullName: "X", position: "QB", team: "ARI", jersey: 1,

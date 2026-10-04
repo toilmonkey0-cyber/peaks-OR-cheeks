@@ -38,6 +38,10 @@
 .rip-card.size-sm .rating { font-size: 12px; }
 .rip-card.size-sm .pos-team { font-size: 7px; }
 .rip-card.size-sm .rip-card-stats { display: none; }
+/* perf: collection grids mount dozens of size-sm cards — the animated tier
+ * sheens on ::after are a compositor cost with no payoff at thumbnail size
+ * (full album-collapse/virtualization is consciously deferred) */
+.rip-card.size-sm::after { animation: none; }
 
 .rip-card.size-lg { width: 240px; height: 300px; padding: 14px; border-radius: 16px; }
 .rip-card.size-lg .rip-card-name { font-size: 20px; }

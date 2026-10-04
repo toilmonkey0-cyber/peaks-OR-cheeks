@@ -30,11 +30,17 @@ export function loadSave(): SaveState {
   try {
     return SaveStateSchema.parse(JSON.parse(raw));
   } catch {
-    localStorage.setItem(BACKUP_KEY, raw);
+    // best-effort quarantine backup; a failing backup write must not crash boot
+    try { localStorage.setItem(BACKUP_KEY, raw); } catch { /* quota/private mode */ }
     return freshSave();
   }
 }
 
 export function writeSave(s: SaveState): void {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+  } catch {
+    // quota/private-mode setItem failures are survivable: the in-memory save
+    // keeps playing; only persistence for the session is lost (silent by design)
+  }
 }

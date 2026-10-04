@@ -28,6 +28,9 @@ describe("App shell", () => {
     fireEvent.pointerUp(screen.getByTestId("pack-flow"));
     await waitFor(() => expect(screen.getByTestId("pack-summary")).toBeInTheDocument(), { timeout: 3000 });
     expect(screen.getByTestId("pack-summary").textContent).not.toBe("");
+    // spec §8: fresh save → nothing owned before the pack → all 5 cards marked NEW
+    const newChips = await screen.findAllByTestId(/^new-/);
+    expect(newChips).toHaveLength(5);
     fireEvent.click(screen.getByTestId("summary-done"));
     // fresh save: daily pack is free, no dupes possible; a troll reveal may add +25
     const coins = Number(screen.getByTestId("coin-balance").dataset.coins);

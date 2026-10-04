@@ -9,7 +9,7 @@ import { RevealCard } from "@/components/RevealCard";
 
 export function Packs({ save, setSave, snapshot }: {
   save: SaveState; setSave: React.Dispatch<React.SetStateAction<SaveState>>; snapshot: Snapshot; }) {
-  const [flow, setFlow] = useState<{ result: PackResult; skip: boolean } | null>(null);
+  const [flow, setFlow] = useState<{ result: PackResult; skip: boolean; newIds: string[] } | null>(null);
   const [themePositions, setThemePositions] = useState<string[]>(["RB"]);
   const dailyFree = save.lastDailyClaim !== new Date().toISOString().slice(0, 10);
 
@@ -17,22 +17,30 @@ export function Packs({ save, setSave, snapshot }: {
     const cost = packType === "standard" && dailyFree ? 0 : PACK_CONFIG[packType].cost;
     if (save.coins < cost) return;
     haptic(HAPTICS.rip);
+    // openPack is a pure one-shot and stays OUTSIDE the state updater (ledger
+    // mandate: the updater must be re-runnable, never a second pack source).
+    const ownedIds = new Set(Object.keys(save.owned));
     const result = openPack({ packType, seed: crypto.randomUUID(),
-      ownedIds: new Set(Object.keys(save.owned)), snapshot,
+      ownedIds, snapshot,
       themePositions: packType === "theme" ? themePositions : undefined });
     const trollCount = result.scripts.filter((s) => s === "troll").length;
     const gained = totalDupeCoins(result.dupesConverted) + trollCount * TROLL_COINS;
-    const owned = { ...save.owned };
-    for (const c of result.cards) owned[c.playerId] = (owned[c.playerId] ?? 0) + 1;
-    // free daily pack claims the day AND banks the streak bonus in the same action
-    let coins = save.coins, streak = save.streak, lastDailyClaim = save.lastDailyClaim;
-    if (cost === 0) {
-      const today = new Date().toISOString().slice(0, 10);
-      ({ coins, streak, lastDailyClaim } = applyDaily(
-        { coins: save.coins, streak: save.streak, lastDailyClaim: save.lastDailyClaim }, today));
-    }
-    setSave({ ...save, coins: coins - cost + gained, owned, streak, lastDailyClaim });
-    setFlow({ result, skip: false });
+    // spec §8: cards NOT owned before the pack open get a NEW marker in the summary
+    const newIds = result.cards.filter((c) => !ownedIds.has(c.playerId)).map((c) => c.playerId);
+    const today = new Date().toISOString().slice(0, 10);
+    setSave((prev) => {
+      // all save-field reads come from prev inside the updater
+      const owned = { ...prev.owned };
+      for (const c of result.cards) owned[c.playerId] = (owned[c.playerId] ?? 0) + 1;
+      // free daily pack claims the day AND banks the streak bonus in the same action
+      let coins = prev.coins, streak = prev.streak, lastDailyClaim = prev.lastDailyClaim;
+      if (cost === 0) {
+        ({ coins, streak, lastDailyClaim } = applyDaily(
+          { coins: prev.coins, streak: prev.streak, lastDailyClaim: prev.lastDailyClaim }, today));
+      }
+      return { ...prev, coins: coins - cost + gained, owned, streak, lastDailyClaim };
+    });
+    setFlow({ result, skip: false, newIds });
   }
 
   if (flow) return <PackFlow flow={flow} setFlow={setFlow} />;
@@ -56,20 +64,24 @@ export function Packs({ save, setSave, snapshot }: {
 }
 
 function PackFlow({ flow, setFlow }: {
-  flow: { result: PackResult; skip: boolean }; setFlow: (f: { result: PackResult; skip: boolean } | null) => void; }) {
+  flow: { result: PackResult; skip: boolean; newIds: string[] };
+  setFlow: (f: { result: PackResult; skip: boolean; newIds: string[] } | null) => void; }) {
   const [idx, setIdx] = useState(0);
   const [skip, setSkip] = useState(flow.skip);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // a pending hold timer must never fire after the flow unmounts
   useEffect(() => () => { if (pressTimer.current) clearTimeout(pressTimer.current); }, []);
   const result = flow.result;
+  const newIdSet = new Set(flow.newIds);
   const card: Card | undefined = result.cards[idx];
 
   if (!card) {
     const dupCoins = totalDupeCoins(result.dupesConverted);
     return (
       <section data-testid="pack-summary" className="pack-summary">
-        {result.cards.map((c) => <div key={c.playerId}>{c.name} ({c.tier})</div>)}
+        {result.cards.map((c) => <div key={c.playerId}>{c.name} ({c.tier})
+          {newIdSet.has(c.playerId) && <span className="new-chip" data-testid={`new-${c.playerId}`}>NEW</span>}
+        </div>)}
         {dupCoins > 0 && <p>Duplicates → +{dupCoins} 🪙</p>}
         <button data-testid="summary-done" onClick={() => setFlow(null)}>Done</button>
       </section>

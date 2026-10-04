@@ -1,11 +1,14 @@
+import { memo, useMemo } from "react";
 import type { Card, Team } from "@/data/schema";
 import { generateAvatar } from "@/avatar/avatar";
 import { AvatarCanvas } from "@/avatar/AvatarCanvas";
 import "./CardView.css";
 
-export function CardView({ card, team, size = "md", count }:
+// memo: Collection grids render hundreds of CardViews; unrelated save/tab
+// re-renders used to re-run generateAvatar for every visible card.
+function CardViewBase({ card, team, size = "md", count }:
   { card: Card; team?: Team; size?: "sm" | "md" | "lg"; count?: number }) {
-  const grid = generateAvatar(card.avatarSeed);
+  const grid = useMemo(() => generateAvatar(card.avatarSeed), [card.avatarSeed]);
   return (
     <div className={`rip-card tier-${card.tier} size-${size}`}>
       {count && count > 1 ? <span className="dupe-badge" data-testid="dupe-badge">×{count}</span> : null}
@@ -23,3 +26,5 @@ export function CardView({ card, team, size = "md", count }:
     </div>
   );
 }
+
+export const CardView = memo(CardViewBase);
