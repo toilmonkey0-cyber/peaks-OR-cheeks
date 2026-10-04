@@ -302,3 +302,7 @@ wrapper that no-ops when unsupported or toggled off):
 | 7 | Zod schema as pipeline↔app type contract | 2026-10-03 |
 | 8 | Haptic vocabulary, one wrapper, progressive enhancement (Android yes, iOS Safari falls back) | 2026-10-03 |
 | 9 | Published game overalls as primary rating ("OVR", source never named in UI); stats curve as fallback + DEF | 2026-10-03 |
+| 10 | v1 ships substring search only — fuzzy trigram matching (§8) deferred to v2 | 2026-10-03 |
+| 11 | "New card shine" (§8) shipped as NEW chips in the pack summary; Collection shine animation deferred to v2 | 2026-10-03 |
+| 12 | Sleeper API fallback (§4) not implemented in v1 — nflverse is sole source; EA endpoint dormant by design | 2026-10-03 |
+| 13 | Collection album collapse/virtualization deferred; memo + thumbnail-sheen-off shipped as v1 mitigation | 2026-10-03 |
