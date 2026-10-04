@@ -127,18 +127,21 @@ Card = {
 
 Exact formula lives in `ratings.py` with fixtures; thresholds:
 
-| Tier | Threshold | Expected pool share |
+| Tier | Threshold | Pool share (follows the exp-4 curve) |
 |---|---|---|
-| Common | < 70 | ~65% |
-| Rare | 70–79 | ~25% |
-| Elite | 80–89 | ~8% |
-| Legend | ≥ 90 | ~2% |
+| Common | < 70 | ~80% |
+| Rare | 70–79 | ~9% |
+| Elite | 80–89 | ~5% |
+| Legend | ≥ 90 | ~5% |
 | X-Factor | top 5 biggest week-over-week rating risers, re-tagged each refresh | 5 cards |
 
 Numbers above are **tunable constants** in one config file, not scattered magic.
-Because published overalls cluster differently than the fallback curve (more
-players in the 70–85 band), the first live run must print the realized tier
-distribution and thresholds re-tuned if shares drift far from the table.
+Thresholds 70/80/90 are deliberately kept audience-familiar (they match the
+published-rating scale users know); pool shares follow from the curve and are
+NOT the perceived-rarity control — **§6 pack odds govern pull rates**
+(e.g. rares pull at 20% despite being ~9% of the pool). The first live run must
+print the realized tier distribution (enforced in build.py) so drift is visible
+each refresh.
 
 Because ratings are real, a breakout rookie's card genuinely *becomes* Elite at
 the next refresh — the chase is real, not manufactured.
