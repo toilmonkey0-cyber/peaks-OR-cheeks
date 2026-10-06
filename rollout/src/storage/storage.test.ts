@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Card } from "@/data/schema";
-import { freshSave, loadSave, recordPull, writeSave } from "./storage";
+import { freshSave, freshStats, loadSave, recordPull, writeSave } from "./storage";
 import { HISTORY_MAX } from "@/engine/config";
 
 const card = (id: string, rating: number): Card => ({
@@ -14,7 +14,8 @@ beforeEach(() => localStorage.clear());
 
 describe("storage", () => {
   it("round-trips a save", () => {
-    const save = { ...freshSave(), pulls: 7, bestId: "x", bestRating: 88, historyIds: ["x", "y"] };
+    const save = { ...freshSave(), soundOn: false, group: "QB" };
+    save.stats.m26.pulls = 3;
     writeSave(save);
     expect(loadSave()).toEqual(save);
   });
@@ -24,25 +25,46 @@ describe("storage", () => {
     expect(loadSave()).toEqual(freshSave());
   });
 
+  it("migrates pre-toggle saves (top-level pulls/best/history → m26)", () => {
+    localStorage.setItem("rollout.save.v1", JSON.stringify({
+      pulls: 5, bestId: "x", bestRating: 91, historyIds: ["x", "y"],
+      soundOn: true, hapticsOn: false, crowdOn: true, group: "WR",
+    }));
+    const save = loadSave();
+    expect(save.source).toBe("m26");
+    expect(save.stats.m26).toEqual({ pulls: 5, bestId: "x", bestRating: 91, historyIds: ["x", "y"] });
+    expect(save.stats.m27).toEqual(freshStats());
+    expect(save.hapticsOn).toBe(false);
+    expect(save.group).toBe("WR");
+  });
+
+  it("keeps per-source stats isolated", () => {
+    let save = freshSave();
+    save = recordPull(save, card("a26", 88)).save;                 // m26
+    save = recordPull({ ...save, source: "m27" }, card("a27", 75)).save; // m27
+    expect(save.stats.m26).toMatchObject({ pulls: 1, bestId: "a26", bestRating: 88 });
+    expect(save.stats.m27).toMatchObject({ pulls: 1, bestId: "a27", bestRating: 75 });
+  });
+
   it("records pulls, tracks the best, dedupes and caps history", () => {
     let save = freshSave();
     for (let i = 0; i < HISTORY_MAX + 4; i++) {
       save = recordPull(save, card(`p${i}`, 60 + i)).save;
     }
-    expect(save.pulls).toBe(HISTORY_MAX + 4);
-    expect(save.bestRating).toBe(60 + HISTORY_MAX + 3);
-    expect(save.bestId).toBe(`p${HISTORY_MAX + 3}`);
-    expect(save.historyIds).toHaveLength(HISTORY_MAX);
+    expect(save.stats.m26.pulls).toBe(HISTORY_MAX + 4);
+    expect(save.stats.m26.bestRating).toBe(60 + HISTORY_MAX + 3);
+    expect(save.stats.m26.bestId).toBe(`p${HISTORY_MAX + 3}`);
+    expect(save.stats.m26.historyIds).toHaveLength(HISTORY_MAX);
     // re-pull an old card: moves to front, no duplicate
     save = recordPull(save, card("p0", 60)).save;
-    expect(save.historyIds[0]).toBe("p0");
-    expect(save.historyIds.filter((id) => id === "p0")).toHaveLength(1);
+    expect(save.stats.m26.historyIds[0]).toBe("p0");
+    expect(save.stats.m26.historyIds.filter((id) => id === "p0")).toHaveLength(1);
   });
 
   it("keeps the old best when a lower card is pulled", () => {
     let save = recordPull(freshSave(), card("hi", 95)).save;
     save = recordPull(save, card("lo", 61)).save;
-    expect(save.bestId).toBe("hi");
-    expect(save.bestRating).toBe(95);
+    expect(save.stats.m26.bestId).toBe("hi");
+    expect(save.stats.m26.bestRating).toBe(95);
   });
 });

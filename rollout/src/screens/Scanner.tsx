@@ -5,8 +5,8 @@ import { filterPool, planScan, type ScanPlan } from "@/engine/draw";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
-import type { SaveState } from "@/storage/storage";
-import { recordPull } from "@/storage/storage";
+import { recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
+import { sourceLabel } from "@/data/snapshot";
 import { CardView } from "@/components/CardView";
 import "./Scanner.css";
 
@@ -32,8 +32,8 @@ function ctx2d(canvas: HTMLCanvasElement): { ctx: CanvasRenderingContext2D; w: n
   return { ctx, w, h };
 }
 
-export function Scanner({ save, setSave, snapshot }: {
-  save: SaveState; setSave: SetSave; snapshot: Snapshot;
+export function Scanner({ save, setSave, snapshots }: {
+  save: SaveState; setSave: SetSave; snapshots: Record<Source, Snapshot>;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [locked, setLocked] = useState({ pos: false, team: false, name: false, ovr: false });
@@ -53,6 +53,17 @@ export function Scanner({ save, setSave, snapshot }: {
   const chargeTimer = useRef<number | null>(null);
   const reduceMotion = useMemo(
     () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+  const switchSource = (s: Source) => {
+    if (s === source) return;
+    pulse(HAPTICS.ui);
+    clearTimers();
+    planRef.current = null;
+    setResult(null);
+    setNearFlash(null);
+    setPhase("idle");
+    setSave((prev) => ({ ...prev, source: s }));
+  };
+
   const iOSShim = !vibrationSupported();
   const rootRef = useRef<HTMLDivElement>(null);
   // haptic + visual stand-in where the Vibration API doesn't exist (iPad)
@@ -65,14 +76,17 @@ export function Scanner({ save, setSave, snapshot }: {
     window.setTimeout(() => el.classList.remove("vibe-shim"), 130);
   }, [iOSShim]);
 
+  const source = save.source;
+  const snapshot = snapshots[source];
+  const stats = save.stats[source];
   const teams: Record<string, Team> = useMemo(
     () => Object.fromEntries(snapshot.teams.map((t) => [t.abbr, t])), [snapshot]);
   const pool = useMemo(() => filterPool(snapshot.players, GROUPS[save.group] ?? null),
     [snapshot.players, save.group]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
-  const best = save.bestId ? byId[save.bestId] : null;
-  const history = save.historyIds.map((id) => byId[id]).filter(Boolean);
+  const best = stats.bestId ? byId[stats.bestId] : null;
+  const history = stats.historyIds.map((id) => byId[id]).filter(Boolean);
 
   const shownTeam = result ?? (planRef.current?.card ?? null);
 
@@ -371,7 +385,15 @@ export function Scanner({ save, setSave, snapshot }: {
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
         <span className="brand">ROLLOUT</span>
-        <span className="pulls" data-testid="pulls">{save.pulls} {save.pulls === 1 ? "scan" : "scans"}</span>
+        <div className="source-toggle" role="tablist" aria-label="Ratings source" data-testid="source-toggle">
+          {SOURCES.map((s) => (
+            <button key={s} type="button" role="tab" aria-selected={source === s}
+              className={source === s ? "on" : ""}
+              disabled={phase === "scanning" || phase === "charging"}
+              onClick={() => switchSource(s)}>{sourceLabel(s, snapshots[s])}</button>
+          ))}
+        </div>
+        <span className="pulls" data-testid="pulls">{stats.pulls} {stats.pulls === 1 ? "scan" : "scans"}</span>
         {best && <span className="best-chip tier-text-{best.tier}" data-testid="best-chip">
           ★ {best.rating} {best.name}</span>}
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
@@ -385,9 +407,9 @@ export function Scanner({ save, setSave, snapshot }: {
             onChange={(e) => setSave((s) => ({ ...s, crowdOn: e.target.checked }))} /> Crowd ambience</label>
           <label><input type="checkbox" checked={save.hapticsOn}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
-          <button className="reset" onClick={() => setSave({
-            ...save, pulls: 0, bestId: null, bestRating: -1, historyIds: [],
-          })}>Reset session</button>
+          <button className="reset" onClick={() => setSave((s) => ({
+            ...s, stats: { ...s.stats, [s.source]: { pulls: 0, bestId: null, bestRating: -1, historyIds: [] } },
+          }))}>Reset session</button>
         </div>
       )}
 

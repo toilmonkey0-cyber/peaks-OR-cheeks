@@ -35,7 +35,28 @@
   align-items: center;
   gap: 12px;
   padding: 6px 4px 12px;
+  flex-wrap: wrap;
 }
+.source-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #0c1322;
+}
+.source-toggle button {
+  background: transparent;
+  color: var(--dim);
+  border: none;
+  padding: 7px 13px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.source-toggle button.on { background: #38bdf8; color: #06111f; }
+.source-toggle button:disabled { opacity: 0.5; cursor: default; }
 .topbar .brand {
   font-weight: 900;
   letter-spacing: 0.34em;

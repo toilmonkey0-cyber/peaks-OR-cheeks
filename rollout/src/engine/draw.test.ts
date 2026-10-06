@@ -56,7 +56,7 @@ describe("planScan", () => {
   });
 
   it("degrades tier when the filtered pool lacks it (ST has no 90+)", () => {
-    const stPool = filterPool(loadSnapshot().players, ["K", "P", "LS"]);
+    const stPool = filterPool(loadSnapshot("m26").players, ["K", "P", "LS"]);
     const maxTier = Math.max(...stPool.map((c) => TIER_RANK[c.tier]));
     for (let i = 0; i < 200; i++) {
       const plan = planScan(`st-${i}`, stPool);
@@ -68,7 +68,7 @@ describe("planScan", () => {
 
 describe("filterPool", () => {
   it("filters by position group and passes ALL through", () => {
-    const players = loadSnapshot().players;
+    const players = loadSnapshot("m26").players;
     const qbs = filterPool(players, ["QB"]);
     expect(qbs.length).toBeGreaterThan(50);
     expect(qbs.every((c) => c.position === "QB")).toBe(true);
