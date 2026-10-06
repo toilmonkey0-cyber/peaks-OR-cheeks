@@ -1,7 +1,6 @@
 import { memo, useMemo } from "react";
 import type { Card, Team } from "@/data/schema";
-import { generateAvatar } from "@/avatar/avatar";
-import { AvatarCanvas } from "@/avatar/AvatarCanvas";
+import { liftColor } from "@/util/color";
 import "./CardView.css";
 
 function heightLabel(h: number | null): string {
@@ -9,22 +8,32 @@ function heightLabel(h: number | null): string {
   return `${Math.floor(h / 12)}'${h % 12}"`;
 }
 
-// memo: history rail re-renders on every scan; avatar generation is per-seed work
+// memo: history rail re-renders on every scan; color lift is per-team work
 function CardViewBase({ card, team, size = "md", highlight = false }:
   { card: Card; team?: Team; size?: "sm" | "md" | "lg"; highlight?: boolean }) {
-  const grid = useMemo(() => generateAvatar(card.avatarSeed), [card.avatarSeed]);
+  const { tp, ts } = useMemo(
+    () => ({ tp: liftColor(team?.primary ?? "#3b4a63"), ts: liftColor(team?.secondary ?? "#25304a") }),
+    [team?.primary, team?.secondary]);
   const meta = [heightLabel(card.heightIn), card.weightLb ? `${card.weightLb} lb` : "",
     card.age ? `${card.age} yrs` : "", card.college].filter(Boolean).join(" · ");
+  const number = String(card.jersey ?? 0);
   return (
     <div className={`ro-card tier-${card.tier} size-${size}${highlight ? " highlight" : ""}`}
-      data-testid="ro-card">
-      {card.xfactor && <span className="xf-badge" aria-label="X-Factor player">⚡ X-F</span>}
+      data-testid="ro-card" style={{ "--tp": tp, "--ts": ts } as React.CSSProperties}>
+      {card.xfactor && <span className="xf-badge">X-FACTOR</span>}
       <div className="ro-card-top">
         <span className="rating">{card.rating}</span>
-        <span className="pos-team">{card.position} · {card.team}</span>
+        <span className="pos-team">
+          {card.position} · {card.team}
+          {size === "sm" && card.jersey != null ? ` · ${number}` : ""}
+        </span>
       </div>
-      <AvatarCanvas grid={grid} primary={team?.primary ?? "#1f2937"}
-        secondary={team?.secondary ?? "#9ca3af"} scale={size === "lg" ? 11 : 5} />
+      {size !== "sm" && (
+        <div className="ro-number-stage" aria-label={`Jersey number ${number}`}>
+          <div className="ro-number" data-n={number}>{number}</div>
+          <div className="ro-number-rule" />
+        </div>
+      )}
       <div className="ro-card-name">{card.name}</div>
       {size !== "sm" && (
         <>

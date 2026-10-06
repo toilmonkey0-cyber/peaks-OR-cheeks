@@ -1,7 +1,10 @@
 .ro-card {
   --accent: var(--tier-accent, #8b98ad);
   position: relative;
-  background: linear-gradient(160deg, #131a2e 0%, #0c1120 70%);
+  background:
+    radial-gradient(85% 60% at 82% 16%, color-mix(in srgb, var(--tp) 14%, transparent) 0%, transparent 60%),
+    radial-gradient(70% 55% at 12% 88%, color-mix(in srgb, var(--ts) 11%, transparent) 0%, transparent 62%),
+    linear-gradient(160deg, #131a2e 0%, #0c1120 70%);
   border: 1px solid #1f2a44;
   border-radius: 14px;
   padding: 10px;
@@ -27,12 +30,12 @@
 
 .ro-card .xf-badge {
   position: absolute;
-  top: 10px;
+  top: 12px;
   right: 10px;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  padding: 3px 7px;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
   border-radius: 999px;
   color: #0a0e1a;
   background: linear-gradient(90deg, #fbbf24, #f97316, #fbbf24);
@@ -45,8 +48,63 @@
 .ro-card-top .rating { font-size: 26px; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
 .size-sm .ro-card-top .rating { font-size: 16px; }
 .ro-card-top .pos-team { font-size: 11px; color: #7d8aa5; font-weight: 600; letter-spacing: 0.08em; }
-.ro-card-name { font-weight: 800; color: #e8edf7; text-align: center; }
-.size-lg .ro-card-name { font-size: 26px; }
+
+/* ── jersey number as the artwork ─────────────────────────────────────────
+   Duotone team-gradient fill with offset echo ghosts — the same motion-blur
+   language the scanner's name stream uses. No iconography: type + color only. */
+.ro-number-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0 0;
+}
+.ro-number {
+  position: relative;
+  z-index: 1;
+  line-height: 0.94;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(165deg, var(--tp) 15%, var(--ts) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ro-number::before,
+.ro-number::after {
+  content: attr(data-n);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.ro-number::before {
+  color: var(--ts);
+  opacity: 0.6;
+  transform: translate(-0.045em, -0.05em) skewX(-10deg);
+  filter: blur(1px);
+}
+.ro-number::after {
+  color: var(--tp);
+  opacity: 0.28;
+  transform: translate(0.06em, 0.045em) skewX(-10deg);
+  filter: blur(1.5px);
+}
+.size-lg .ro-number { font-size: clamp(88px, 19vw, 148px); }
+.size-md .ro-number { font-size: 52px; }
+
+.ro-number-rule {
+  height: 3px;
+  width: 52%;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--tp) 30%, var(--ts) 70%, transparent);
+  opacity: 0.85;
+}
+
+.ro-card-name { font-weight: 800; color: #e8edf7; text-align: center; letter-spacing: 0.02em; }
+.size-lg .ro-card-name { font-size: 25px; text-transform: uppercase; letter-spacing: 0.06em; }
 .size-md .ro-card-name { font-size: 15px; }
 .size-sm .ro-card-name { font-size: 11px; }
 
@@ -88,6 +146,11 @@
   from { transform: scale(0.72) translateY(24px); opacity: 0; filter: blur(6px); }
   to { transform: none; opacity: 1; filter: none; }
 }
+
+/* explicit widths: the number's gradient text contributes no intrinsic size,
+   so the card can't shrink-to-fit it reliably */
+.size-lg { width: min(360px, 92vw); }
+.size-sm { min-width: 84px; }
 
 @media (prefers-reduced-motion: reduce) {
   .ro-card.highlight { animation: none; }

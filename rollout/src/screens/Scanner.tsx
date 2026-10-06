@@ -17,7 +17,7 @@ const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4);
 
 function cardText(card: Card): string {
   const attrs = card.attributes.slice(0, 4).map((a) => `${a.label} ${a.value}`).join(" · ");
-  const xf = card.xfactor ? " ⚡X-Factor" : "";
+  const xf = card.xfactor ? " · X-FACTOR" : "";
   return `${card.rating} OVR · ${card.fullName} · ${card.position} · ${card.team}${xf}\n${attrs}`;
 }
 
@@ -153,8 +153,8 @@ export function Scanner({ save, setSave, snapshots }: {
         const dim = phase === "scanning" ? 0.35 : 1;
         c2.ctx.clearRect(0, 0, c2.w, c2.h);
         x += dt * 0.045;
-        row(c2, 22, 0.16 * dim);
-        row(c2, c2.h - 10, 0.10 * dim);
+      row(c2, 22, 0.24 * dim);
+      row(c2, c2.h - 10, 0.15 * dim);
       }
       raf = requestAnimationFrame(frame);
     };
@@ -394,8 +394,8 @@ export function Scanner({ save, setSave, snapshots }: {
           ))}
         </div>
         <span className="pulls" data-testid="pulls">{stats.pulls} {stats.pulls === 1 ? "scan" : "scans"}</span>
-        {best && <span className="best-chip tier-text-{best.tier}" data-testid="best-chip">
-          ★ {best.rating} {best.name}</span>}
+        {best && <span className="best-chip" data-testid="best-chip">
+          BEST {best.rating} · {best.name}</span>}
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
       </header>
 
