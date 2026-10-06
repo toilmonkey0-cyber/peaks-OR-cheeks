@@ -40,3 +40,26 @@ HTTP_TIMEOUT_S = 30         # published-ratings endpoint fetch timeout
 # Revisit: if EA starts serving the current game under this namespace (or a sibling like
 # madden-nfl-28), paste the URL here and _load_ea normalizes the row shape automatically.
 EA_ENDPOINTS: list[str] = []
+
+# --- Rollout app data (fetch_madden.py) -------------------------------------
+# Final completed-season ratings: immutable once the game's season ends, so this
+# is a one-shot fetch, not a weekly refresh. Iteration ids are strings
+# ("1-base" .. "23-super-bowl"), NOT ints (probed live 2026-10-06: ints return 0).
+MADDEN_NAMESPACE = "madden-nfl"
+MADDEN_ITERATION = "23-super-bowl"
+# Official position filter ids, extracted from the ratings site payload
+# (Madden 26 renamed edge/LB slots: LEDG/REDG/SAM/MIKE/WILL — classic
+# LE/RE/LOLB/MLB/ROLB return 0 items).
+MADDEN_POSITION_CANDIDATES = [
+    "QB", "HB", "FB", "WR", "TE", "LT", "LG", "C", "RG", "RT",
+    "LEDG", "REDG", "DT", "SAM", "MIKE", "WILL", "CB", "FS", "SS",
+    "K", "P", "LS",
+]
+# Numeric drop-api team id → abbr. Verified 2026-10-06 against each id's top
+# players (weak-vote rows 12/14/16/18 manually confirmed: MIA/ATL/NYG/NYJ).
+MADDEN_TEAMS: dict[int, str] = {
+    1: "CHI", 2: "CIN", 3: "BUF", 4: "DEN", 5: "CLE", 6: "TB", 7: "ARI", 8: "LAC",
+    9: "KC", 10: "IND", 11: "DAL", 12: "MIA", 13: "PHI", 14: "ATL", 15: "SF", 16: "NYG",
+    17: "JAX", 18: "NYJ", 19: "DET", 20: "GB", 21: "CAR", 22: "NE", 23: "LV", 24: "LA",
+    25: "BAL", 26: "WAS", 27: "NO", 28: "SEA", 29: "PIT", 30: "TEN", 31: "MIN", 32: "HOU",
+}
