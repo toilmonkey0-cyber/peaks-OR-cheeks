@@ -14,9 +14,10 @@ const card = (over: Partial<Card> = {}): Card => ({
 const team: Team = { abbr: "MIA", name: "Dolphins", city: "Miami", primary: "#00838F", secondary: "#FC4C02" };
 
 describe("CardView", () => {
-  it("renders the jersey number as text artwork with player info", () => {
-    render(<CardView card={card()} team={team} size="lg" />);
+  it("renders the jersey number on a team-gradient plate", () => {
+    const { container } = render(<CardView card={card()} team={team} size="lg" />);
     expect(screen.getByText("10")).toBeInTheDocument();
+    expect(container.querySelector(".ro-plate")).not.toBeNull();
     expect(screen.getByText("T. Hill")).toBeInTheDocument();
     expect(screen.getByText("WR · MIA")).toBeInTheDocument();
     expect(screen.getByText("SPD")).toBeInTheDocument();

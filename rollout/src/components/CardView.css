@@ -50,54 +50,43 @@
 .ro-card-top .pos-team { font-size: 11px; color: #7d8aa5; font-weight: 600; letter-spacing: 0.08em; }
 
 /* ── jersey number as the artwork ─────────────────────────────────────────
-   Duotone team-gradient fill with offset echo ghosts — the same motion-blur
-   language the scanner's name stream uses. No iconography: type + color only. */
+   A duotone team-gradient nameplate: the plate is a skewed parallelogram
+   (speed lives in the block, never in the glyphs), the number sits crisp and
+   upright on it. Ink auto-flips for bright palettes. No iconography. */
 .ro-number-stage {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0 0;
+  padding: 8px 0 0;
+}
+.ro-plate {
+  transform: skewX(-9deg);
+  padding: 0.04em 0.24em;
+  border-radius: 0.06em;
+  background: linear-gradient(135deg, var(--tp) 8%, var(--ts) 92%);
+  box-shadow:
+    0 0.09em 0.5em color-mix(in srgb, var(--tp) 45%, transparent),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 .ro-number {
-  position: relative;
-  z-index: 1;
-  line-height: 0.94;
+  display: block;
+  transform: skewX(9deg); /* counter-skew keeps the digits upright */
   font-weight: 900;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  text-shadow: 0 0.02em 0.08em rgba(0, 0, 0, 0.28);
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(165deg, var(--tp) 15%, var(--ts) 95%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
-.ro-number::before,
-.ro-number::after {
-  content: attr(data-n);
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-}
-.ro-number::before {
-  color: var(--ts);
-  opacity: 0.6;
-  transform: translate(-0.045em, -0.05em) skewX(-10deg);
-  filter: blur(1px);
-}
-.ro-number::after {
-  color: var(--tp);
-  opacity: 0.28;
-  transform: translate(0.06em, 0.045em) skewX(-10deg);
-  filter: blur(1.5px);
-}
-.size-lg .ro-number { font-size: clamp(88px, 19vw, 148px); }
-.size-md .ro-number { font-size: 52px; }
+.size-lg .ro-number { font-size: clamp(84px, 17vw, 132px); }
+.size-md .ro-number { font-size: 46px; }
 
 .ro-number-rule {
   height: 3px;
   width: 52%;
-  margin-top: 8px;
+  margin-top: 10px;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, var(--tp) 30%, var(--ts) 70%, transparent);
   opacity: 0.85;
