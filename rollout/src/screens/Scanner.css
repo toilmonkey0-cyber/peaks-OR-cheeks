@@ -312,8 +312,21 @@
   padding: 6px 2px 10px;
   scrollbar-width: thin;
   min-height: 96px;
+  align-items: flex-start;
 }
-.history-rail:empty { visibility: hidden; }
+.history-rail:empty { visibility: visible; }
+.history-rail:empty::after {
+  content: "no pulls yet — hold SCAN";
+  font-size: 12px;
+  color: #33405e;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  margin: auto;
+}
+
+/* scoreline doubles as the phone sheet toggle */
+.scoreline.tappable { cursor: pointer; user-select: none; -webkit-user-select: none; }
+.scoreline.tappable.active { color: #c5d1e8; }
 
 .burst {
   position: absolute;
@@ -463,6 +476,67 @@
   0% { transform: scale(1); }
   40% { transform: scale(1.008); }
   100% { transform: scale(1); }
+}
+
+/* ── phone: results/history live in a slide-up sheet, page never grows ────── */
+@media (max-width: 699px) {
+  .side {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    max-height: 78dvh;
+    overflow-y: auto;
+    background: rgba(9, 13, 24, 0.94);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+    border-radius: 18px 18px 0 0;
+    padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+    transform: translateY(106%);
+    transition: transform 0.34s cubic-bezier(0.3, 1.15, 0.4, 1);
+    box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.5);
+  }
+  .side.open { transform: none; }
+  .placeholder { display: none; }
+  .history-rail { min-height: 84px; }
+  .focus-wrap { max-height: 44dvh; }
+  .scan-btn { width: min(58vw, 210px); min-height: 76px; }
+  .topbar .brand { font-size: 12px; }
+  .best-chip { max-width: 38vw; }
+}
+
+/* ── short landscape (phones sideways): compact, results in a sheet too ──── */
+@media (max-height: 520px) {
+  .topbar { padding-bottom: 4px; gap: 8px; }
+  .scoreline { padding: 0 4px 4px; }
+  .focus-wrap { aspect-ratio: auto; height: min(38dvh, 210px); }
+  .scan-btn { width: min(30vw, 180px); min-height: 60px; }
+  .scan-btn span { font-size: 19px; }
+  .history-rail { min-height: 70px; }
+  .chips { padding-top: 4px; }
+  .chips button { padding: 6px 12px; }
+  .side {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    max-height: 66dvh;
+    overflow-y: auto;
+    background: rgba(9, 13, 24, 0.94);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+    padding: 8px 14px calc(10px + env(safe-area-inset-bottom));
+    transform: translateY(106%);
+    transition: transform 0.34s cubic-bezier(0.3, 1.15, 0.4, 1);
+    box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.5);
+  }
+  .side.open { transform: none; }
+  .placeholder { display: none; }
 }
 
 /* ── tablet / landscape ─────────────────────────────────────────────────── */

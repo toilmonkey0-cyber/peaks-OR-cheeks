@@ -49,6 +49,10 @@ export function Scanner({ save, setSave, snapshots }: {
   const [celebration, setCelebration] =
     useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string } | null>(null);
   const celebrationToken = useRef(0);
+  const [manualSheet, setManualSheet] = useState(false);
+  // phones: the side column is a bottom sheet — auto-opens on a fresh result,
+  // or manually via the scoreline (history viewer)
+  const sheetOpen = (result !== null && phase === "result") || manualSheet;
 
   const planRef = useRef<ScanPlan | null>(null);
   const timers = useRef<number[]>([]);
@@ -306,6 +310,7 @@ export function Scanner({ save, setSave, snapshots }: {
     setOvrDisplay(0);
     setCelebration(null);
     celebrationToken.current++;
+    setManualSheet(false);
     setLocked({ pos: false, team: false, name: false, ovr: false });
     setPhase("scanning");
 
@@ -453,7 +458,8 @@ export function Scanner({ save, setSave, snapshots }: {
           BEST {best.rating} · {best.name}</span>}
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
       </header>
-      <div className="scoreline" data-testid="scoreline">
+      <div className={`scoreline tappable${sheetOpen ? " active" : ""}`} data-testid="scoreline"
+        onClick={() => { pulse(HAPTICS.ui); setManualSheet((s) => !s); }}>
         <b className="gold">{stats.peaks} {stats.peaks === 1 ? "peak" : "peaks"}</b>
         <span className="sep">·</span>
         <b className="brown">{stats.cheeks} {stats.cheeks === 1 ? "cheek" : "cheeks"}</b>
@@ -503,12 +509,12 @@ export function Scanner({ save, setSave, snapshots }: {
           </button>
         </section>
 
-        <section className="side">
+        <section className={`side${sheetOpen ? " open" : ""}`}>
           {result ? (
             <div className={celebration && celebration.kind !== "peak" ? "result-col droop" : "result-col"}>
               <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />
               <div className="result-actions">
-                <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); planRef.current = null; }}>Scan again</button>
+                <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); setManualSheet(false); planRef.current = null; }}>Scan again</button>
                 <button onClick={() => {
                   void navigator.clipboard?.writeText(cardText(result));
                   setCopied(true);
