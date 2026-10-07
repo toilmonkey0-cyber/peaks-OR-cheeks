@@ -128,4 +128,4 @@ generated from team palettes.
 Code is [MIT](LICENSE). Ratings data in `data/` belongs to its publisher and is
 included for offline use with attribution.
 
-[pages]: https://YOUR-USERNAME.github.io/peaks-OR-cheeks/
+[pages]: https://toilmonkey0-cyber.github.io/peaks-OR-cheeks/
