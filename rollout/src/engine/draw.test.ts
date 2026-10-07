@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Card, Tier } from "@/data/schema";
-import { NEAR_MISS_MIN_RATING, ODDS, REEL_SIZE, TIER_RANK } from "./config";
-import { filterPool, planScan } from "./draw";
+import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_LINES, NEAR_MISS_MIN_RATING, ODDS, REEL_SIZE, TIER_RANK } from "./config";
+import { filterPool, nextCheekStreak, planScan, verdictOf } from "./draw";
 import { loadSnapshot } from "@/data/snapshot";
 
 const mk = (id: string, rating: number, position = "WR", name = id): Card => {
@@ -63,6 +63,30 @@ describe("planScan", () => {
       expect(TIER_RANK[plan.tier]).toBeLessThanOrEqual(maxTier);
       expect(stPool).toContain(plan.card);
     }
+  });
+});
+
+describe("verdicts", () => {
+  it("sits at the agreed thresholds", () => {
+    expect(verdictOf(mk("p80", 80))).toBe("peak");
+    expect(verdictOf(mk("p79", 79))).toBeNull();
+    expect(verdictOf(mk("c62", 62))).toBe("cheeks");
+    expect(verdictOf(mk("c63", 63))).toBeNull();
+    expect(verdictOf(mk("a58", 58))).toBe("atomic");
+    expect(verdictOf(mk("a57", 57))).toBe("atomic");
+  });
+
+  it("cheek streaks: extend on cheeks, break on peak, middles are forgettable", () => {
+    expect(nextCheekStreak(2, "cheeks")).toBe(3);
+    expect(nextCheekStreak(2, "atomic")).toBe(3);
+    expect(nextCheekStreak(4, "peak")).toBe(0);
+    expect(nextCheekStreak(4, null)).toBe(4);
+    expect(nextCheekStreak(0, null)).toBe(0);
+  });
+
+  it("copy pools are stocked", () => {
+    expect(CHEEKS_LINES.length).toBeGreaterThanOrEqual(6);
+    expect(ATOMIC_CHEEKS_MAX_RATING).toBe(58);
   });
 });
 

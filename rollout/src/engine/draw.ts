@@ -1,5 +1,5 @@
 import type { Card, Tier } from "@/data/schema";
-import { DELAYS, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
+import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
 import { makeRng } from "./rng";
 
 export interface ReelEntry { name: string; tier: Tier; rating: number }
@@ -92,3 +92,21 @@ export function planScan(planSeed: string, pool: Card[]): ScanPlan {
 export function filterPool(players: Card[], groupPositions: string[] | null): Card[] {
   return groupPositions ? players.filter((c) => groupPositions.includes(c.position)) : players;
 }
+
+// ── verdicts ────────────────────────────────────────────────────────────────
+export type Verdict = "peak" | "cheeks" | "atomic" | null;
+
+export function verdictOf(card: Card): Verdict {
+  if (card.rating >= PEAK_MIN_RATING) return "peak";
+  if (card.rating <= ATOMIC_CHEEKS_MAX_RATING) return "atomic";
+  if (card.rating <= CHEEKS_MAX_RATING) return "cheeks";
+  return null;
+}
+
+/** Streak rule: cheeks/atomic extend it, peaks break it, middles are forgettable. */
+export function nextCheekStreak(current: number, verdict: Verdict): number {
+  if (verdict === "peak") return 0;
+  if (verdict === "cheeks" || verdict === "atomic") return current + 1;
+  return current;
+}
+

@@ -11,6 +11,7 @@ export interface SourceStats {
   bestId: string | null;
   bestRating: number; // -1 = no best yet
   historyIds: string[];
+  cheekStreak: number;
 }
 
 export interface SaveState {
@@ -22,7 +23,8 @@ export interface SaveState {
   group: string;
 }
 
-export const freshStats = (): SourceStats => ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [] });
+export const freshStats = (): SourceStats =>
+  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0 });
 
 export const freshSave = (): SaveState => ({
   source: "m26",
@@ -40,17 +42,18 @@ export function loadSave(): SaveState {
     const parsed = JSON.parse(raw) as Partial<SaveState> & Partial<SourceStats>;
     // v1 saves (pre-source-toggle) kept pulls/best*/history at the top level → fold into m26
     const legacy = typeof parsed.pulls === "number" || parsed.bestId || Array.isArray(parsed.historyIds);
+    const merge = (s: Partial<SourceStats>): SourceStats => ({ ...freshStats(), ...s });
     const statsBase = legacy
       ? {
-          m26: {
+          m26: merge({
             pulls: typeof parsed.pulls === "number" ? parsed.pulls : 0,
             bestId: parsed.bestId ?? null,
             bestRating: typeof parsed.bestRating === "number" ? parsed.bestRating : -1,
-            historyIds: Array.isArray(parsed.historyIds) ? parsed.historyIds.slice(0, HISTORY_MAX) : [],
-          },
+            historyIds: Array.isArray(parsed.historyIds) ? parsed.historyIds : [],
+          }),
           m27: freshStats(),
         }
-      : { m26: parsed.stats?.m26 ?? freshStats(), m27: parsed.stats?.m27 ?? freshStats() };
+      : { m26: merge(parsed.stats?.m26 ?? {}), m27: merge(parsed.stats?.m27 ?? {}) };
     for (const s of SOURCES) {
       statsBase[s].historyIds = (statsBase[s].historyIds ?? []).slice(0, HISTORY_MAX);
     }
@@ -82,7 +85,7 @@ export interface PullOutcome {
   isNewBest: boolean;
 }
 
-export function recordPull(save: SaveState, card: Card): PullOutcome {
+export function recordPull(save: SaveState, card: Card, cheekStreak: number): PullOutcome {
   const cur = save.stats[save.source];
   const isNewBest = card.rating > cur.bestRating;
   const next: SourceStats = {
@@ -90,6 +93,7 @@ export function recordPull(save: SaveState, card: Card): PullOutcome {
     bestId: isNewBest ? card.playerId : cur.bestId,
     bestRating: isNewBest ? card.rating : cur.bestRating,
     historyIds: [card.playerId, ...cur.historyIds.filter((id) => id !== card.playerId)].slice(0, HISTORY_MAX),
+    cheekStreak,
   };
   return {
     save: { ...save, stats: { ...save.stats, [save.source]: next } },

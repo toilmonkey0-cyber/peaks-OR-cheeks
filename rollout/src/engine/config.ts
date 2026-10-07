@@ -39,9 +39,50 @@ export const GROUPS: Record<string, string[] | null> = {
   ST: ["K", "P", "LS"],
 };
 
+// ── Verdicts: the celebration layer (decoupled from tiers) ─────────────────
+// Peak 80+ mirrors cheeks ≤62 (~9% each); atomic ≤58 is as rare as a 99.
+export const PEAK_MIN_RATING = 80;
+export const CHEEKS_MAX_RATING = 62;
+export const ATOMIC_CHEEKS_MAX_RATING = 58;
+
+// The judgment beat: silence between the OVR lock and the celebration.
+export const VERDICT_BEAT_MS = 400;
+export const CELEBRATION_MS = { peak: 1600, cheeks: 1800, atomic: 2300 } as const;
+
+// PG-13, deadpan-forward; "He is ass." stays in the pool so it lands ~1 in 8.
+export const CHEEKS_LINES = [
+  "The reel has spoken.",
+  "My condolences.",
+  "That's a mentorship-presence kind of pull.",
+  "He is ass.",
+  "Tragic. Genuinely.",
+  "Somewhere, a scout got fired.",
+  "The card tried its best.",
+  "Framed… in a cautionary way.",
+] as const;
+export const ATOMIC_CHEEKS_LINES = [
+  "Scientists are studying this pull.",
+  "This is the rarest thing that can happen to you today.",
+  "Historically bad. Museum-grade cheeks.",
+  "A 54 is as rare as a 99. The universe has jokes.",
+] as const;
+export const PEAK_LINES = [
+  "Certified dude.",
+  "Your group chat is about to be unwell.",
+  "Frame it. Immediately.",
+  "PEAK. As called.",
+  "Somebody screenshot this before it un-happens.",
+] as const;
+export const STREAK_LINES: Record<number, string> = {
+  3: "3 straight cheeks. Seek help.",
+  5: "5 straight. The house is laughing.",
+  7: "7 straight. Unprecedented despair.",
+};
+
 export const TIER_ACCENT: Record<Tier, string> = {
   common: "#8b98ad",
   rare: "#38bdf8",
   elite: "#a78bfa",
   legend: "#fbbf24",
 };
+

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Card, Snapshot, Team } from "@/data/schema";
-import { GROUPS, TIER_ACCENT } from "@/engine/config";
-import { filterPool, planScan, type ScanPlan } from "@/engine/draw";
+import {
+  ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
+  STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
+} from "@/engine/config";
+import { filterPool, nextCheekStreak, planScan, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
@@ -43,6 +46,9 @@ export function Scanner({ save, setSave, snapshots }: {
   const [showSettings, setShowSettings] = useState(false);
   const [copied, setCopied] = useState(false);
   const [chargeMs, setChargeMs] = useState(0);
+  const [celebration, setCelebration] =
+    useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string } | null>(null);
+  const celebrationToken = useRef(0);
 
   const planRef = useRef<ScanPlan | null>(null);
   const timers = useRef<number[]>([]);
@@ -60,6 +66,8 @@ export function Scanner({ save, setSave, snapshots }: {
     planRef.current = null;
     setResult(null);
     setNearFlash(null);
+    setCelebration(null);
+    celebrationToken.current++;
     setPhase("idle");
     setSave((prev) => ({ ...prev, source: s }));
   };
@@ -242,29 +250,42 @@ export function Scanner({ save, setSave, snapshots }: {
     return () => cancelAnimationFrame(raf);
   }, [phase, reduceMotion]);
 
-  const burst = useCallback((colors: string[]) => {
+  const burst = useCallback((colors: string[], mode: "burst" | "flutter" = "burst") => {
     if (reduceMotion) return;
     const canvas = burstRef.current;
     const c2 = canvas ? ctx2d(canvas) : null;
     if (!canvas || !c2) return;
     const { ctx, w, h } = c2;
-    const parts = Array.from({ length: 70 }, () => ({
-      x: w / 2, y: h / 2,
-      vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8 - 2,
-      c: colors[Math.floor(Math.random() * colors.length)],
-      life: 1,
-    }));
+    const parts = mode === "burst"
+      ? Array.from({ length: 70 }, () => ({
+          x: w / 2, y: h / 2,
+          vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8 - 2,
+          c: colors[Math.floor(Math.random() * colors.length)],
+          life: 1, sway: 0,
+        }))
+      : Array.from({ length: 46 }, () => ({
+          x: Math.random() * w, y: -12,
+          vx: (Math.random() - 0.5) * 1.1, vy: 0.35 + Math.random() * 0.9,
+          c: colors[Math.floor(Math.random() * colors.length)],
+          life: 1.6, sway: Math.random() * Math.PI * 2,
+        }));
     const start = performance.now();
     const frame = (now: number) => {
       const dt = Math.min(40, now - start) / 16;
       ctx.clearRect(0, 0, w, h);
       let alive = false;
       for (const p of parts) {
-        p.life -= 0.012 * dt;
-        if (p.life <= 0) continue;
+        p.life -= (mode === "burst" ? 0.012 : 0.006) * dt;
+        if (p.life <= 0 || p.y > h + 14) continue;
         alive = true;
-        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.22 * dt;
-        ctx.globalAlpha = p.life;
+        if (mode === "burst") {
+          p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.22 * dt;
+        } else {
+          p.sway += 0.06 * dt;
+          p.x += (p.vx + Math.sin(p.sway) * 0.7) * dt; // defeated paper, fluttering
+          p.y += p.vy * dt;
+        }
+        ctx.globalAlpha = Math.min(1, p.life);
         ctx.fillStyle = p.c;
         ctx.fillRect(p.x, p.y, 5, 9);
       }
@@ -283,6 +304,8 @@ export function Scanner({ save, setSave, snapshots }: {
     setResult(null);
     setNearFlash(null);
     setOvrDisplay(0);
+    setCelebration(null);
+    celebrationToken.current++;
     setLocked({ pos: false, team: false, name: false, ovr: false });
     setPhase("scanning");
 
@@ -328,11 +351,42 @@ export function Scanner({ save, setSave, snapshots }: {
       if (card.xfactor) after(260, () => pulse(HAPTICS.xfactor));
       setResult(card);
       setPhase("result");
-      const outcome = recordPull(save, card);
-      setSave(outcome.save);
+
+      const verdict = verdictOf(card);
+      const priorStreak = save.stats[save.source].cheekStreak;
+      const streak = nextCheekStreak(priorStreak, verdict);
+      setSave(recordPull(save, card, streak).save);
       if (card.tier === "legend") {
         const team = teams[card.team];
         burst(["#fbbf24", team?.primary ?? "#38bdf8", "#ffffff", team?.secondary ?? "#a78bfa"]);
+      }
+
+      if (verdict) {
+        // the judgment beat: silence after the number lands, then everything at once
+        synth.duckCrowd(VERDICT_BEAT_MS + 400);
+        after(VERDICT_BEAT_MS, () => {
+          const pool = verdict === "peak" ? PEAK_LINES
+            : verdict === "atomic" ? ATOMIC_CHEEKS_LINES : CHEEKS_LINES;
+          const line = pool[Math.floor(Math.random() * pool.length)];
+          const streakLine = verdict !== "peak"
+            ? STREAK_LINES[streak]
+            : priorStreak >= 3 ? "Streak broken. Redemption." : undefined;
+          const token = ++celebrationToken.current;
+          setCelebration({ kind: verdict, line, streakLine });
+          synth.celebrate(verdict);
+          pulse(HAPTICS[verdict === "peak" ? "peakJoy" : verdict]);
+          if (!reduceMotion) {
+            if (verdict === "peak") {
+              const team = teams[card.team];
+              burst(["#fbbf24", "#fde68a", "#ffffff", team?.primary ?? "#38bdf8"]);
+            } else {
+              burst(["#8b6f47", "#6b7280", "#4b5563", "#9ca3af"], "flutter");
+            }
+          }
+          after(CELEBRATION_MS[verdict], () => {
+            if (celebrationToken.current === token) setCelebration(null);
+          });
+        });
       }
     });
   }, [after, burst, clearTimers, phase, pool, pulse, reduceMotion, save, setSave, teams]);
@@ -441,7 +495,7 @@ export function Scanner({ save, setSave, snapshots }: {
 
         <section className="side">
           {result ? (
-            <div className="result-col">
+            <div className={celebration && celebration.kind !== "peak" ? "result-col droop" : "result-col"}>
               <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />
               <div className="result-actions">
                 <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); planRef.current = null; }}>Scan again</button>
@@ -473,6 +527,19 @@ export function Scanner({ save, setSave, snapshots }: {
             onClick={() => { pulse(HAPTICS.ui); setSave((s) => ({ ...s, group: g })); }}>{g}</button>
         ))}
       </nav>
+      {celebration && (
+        <div className={`celebrate kind-${celebration.kind}`} data-testid="celebration"
+          role="status" onClick={() => { celebrationToken.current++; setCelebration(null); }}>
+          <div className="celebrate-wash" />
+          {celebration.kind === "peak" && <div className="rays" />}
+          <div className="stamp">
+            {celebration.kind === "atomic" ? "ATOMIC CHEEKS." : celebration.kind === "cheeks" ? "CHEEKS." : "PEAK"}
+          </div>
+          <div className="cline">{celebration.line}</div>
+          {celebration.streakLine && <div className="cline streak">{celebration.streakLine}</div>}
+          <div className="skip-hint">tap to continue</div>
+        </div>
+      )}
     </div>
   );
 }

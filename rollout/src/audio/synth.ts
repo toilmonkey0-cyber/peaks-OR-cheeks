@@ -173,6 +173,67 @@ class Synth {
     }
   }
 
+  /** Briefly duck the crowd under the judgment beat. */
+  duckCrowd(ms: number): void {
+    if (!this.ctx || !this.crowdGain) return;
+    const t0 = this.t;
+    this.crowdGain.gain.setTargetAtTime(0.004, t0, 0.05);
+    this.crowdGain.gain.setTargetAtTime(0.05, t0 + ms / 1000, 0.3);
+  }
+
+  /** Descending detuned saw note with end-of-phrase bend — one trombone blat. */
+  private tromboneNote(freq: number, at: number, durS: number, gain: number, bend = false): void {
+    if (!this.ctx || !this.master || !this.enabled) return;
+    const t0 = this.t + at;
+    for (const det of [-4, 4]) {
+      const osc = this.ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.detune.value = det;
+      osc.frequency.setValueAtTime(freq * 1.06, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq, t0 + 0.06);
+      if (bend) {
+        osc.frequency.setValueAtTime(freq, t0 + durS * 0.55);
+        osc.frequency.linearRampToValueAtTime(freq * 0.82, t0 + durS);
+      }
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.05);
+      g.gain.setValueAtTime(gain, t0 + durS * 0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + durS);
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 1100;
+      osc.connect(lp).connect(g).connect(this.master);
+      osc.start(t0);
+      osc.stop(t0 + durS + 0.05);
+    }
+  }
+
+  /** The verdict fanfares. */
+  celebrate(kind: "peak" | "cheeks" | "atomic"): void {
+    if (!this.ctx || !this.master || !this.enabled) return;
+    if (kind === "peak") {
+      [261.6, 329.6, 392, 523.3, 659.3].forEach((f, i) =>
+        this.blip(f, 1.1, "sawtooth", 0.09, i * 0.035));
+      this.blip(65.4, 1.2, "sine", 0.3);
+      this.noise(0.7, 0.14, 900);
+      [1046.5, 1318.5, 1568, 2093].forEach((f, i) =>
+        this.blip(f, 0.35, "sine", 0.07, 0.28 + i * 0.06));
+    } else if (kind === "cheeks") {
+      // wah — wah — waaah
+      this.tromboneNote(196, 0.0, 0.22, 0.14);          // G3
+      this.tromboneNote(164.8, 0.26, 0.22, 0.14);       // E3
+      this.tromboneNote(130.8, 0.52, 0.75, 0.16, true); // C3, long bend
+    } else {
+      // atomic: four-step funeral descent
+      this.tromboneNote(196, 0.0, 0.2, 0.14);
+      this.tromboneNote(174.6, 0.24, 0.2, 0.14);
+      this.tromboneNote(146.8, 0.48, 0.2, 0.14);
+      this.tromboneNote(110, 0.72, 1.1, 0.17, true);
+      this.blip(49, 1.2, "sine", 0.28);
+    }
+  }
+
   setCrowd(on: boolean): void {
     this.crowdWanted = on;
     if (on && this.ctx) this.crowdStart();
