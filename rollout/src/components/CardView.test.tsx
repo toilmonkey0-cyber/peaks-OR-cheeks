@@ -14,26 +14,38 @@ const card = (over: Partial<Card> = {}): Card => ({
 const team: Team = { abbr: "MIA", name: "Dolphins", city: "Miami", primary: "#00838F", secondary: "#FC4C02" };
 
 describe("CardView", () => {
-  it("renders the jersey number on a team-gradient plate", () => {
-    const { container } = render(<CardView card={card()} team={team} size="lg" />);
+  it("renders the template layout: tabs, stacked name, pos+city, OVR, number, stats", () => {
+    render(<CardView card={card()} team={team} size="lg" tab="M26" />);
+    expect(screen.getByText("M26")).toBeInTheDocument();
+    expect(screen.getByText("PLAYER CARD")).toBeInTheDocument();
+    expect(screen.getByText("TYREEK")).toBeInTheDocument();
+    expect(screen.getByText("HILL")).toBeInTheDocument();
+    expect(screen.getByText("WR")).toBeInTheDocument();
+    expect(screen.getByText("MIAMI")).toBeInTheDocument();
+    expect(screen.getByText("91")).toBeInTheDocument();
+    expect(screen.getByText("OVR")).toBeInTheDocument();
+    expect(screen.getByText("#")).toBeInTheDocument();
     expect(screen.getByText("10")).toBeInTheDocument();
-    expect(container.querySelector(".ro-plate")).not.toBeNull();
-    expect(screen.getByText("T. Hill")).toBeInTheDocument();
-    expect(screen.getByText("WR · MIA")).toBeInTheDocument();
     expect(screen.getByText("SPD")).toBeInTheDocument();
     expect(screen.getByText("X-FACTOR")).toBeInTheDocument();
   });
 
   it("contains no canvas/avatar imagery — type and color only", () => {
-    const { container } = render(<CardView card={card()} team={team} size="lg" />);
+    const { container } = render(<CardView card={card()} team={team} size="lg" tab="M27" />);
     expect(container.querySelector("canvas")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
   });
 
+  it("splits multi-word surnames onto the last line", () => {
+    render(<CardView card={card({ fullName: "Marquez Valdes-Scantling" })} team={team} size="lg" />);
+    expect(screen.getByText("MARQUEZ")).toBeInTheDocument();
+    expect(screen.getByText("VALDES-SCANTLING")).toBeInTheDocument();
+  });
+
   it("sm cards show the number inline and stay compact", () => {
-    render(<CardView card={card()} team={team} size="sm" />);
-    expect(screen.getByText("WR · MIA · 10")).toBeInTheDocument();
-    expect(screen.queryByTestId("ro-number-stage")).toBeNull();
+    const { container } = render(<CardView card={card()} team={team} size="sm" />);
+    expect(container.textContent).toContain("WR · MIA · 10");
+    expect(screen.queryByText("PLAYER CARD")).toBeNull();
   });
 
   it("renders fine for real snapshot players of any team (incl. black palettes)", () => {
@@ -41,8 +53,8 @@ describe("CardView", () => {
     for (const abbr of ["PIT", "LV", "ARI", "KC"]) {
       const p = snap.players.find((c) => c.team === abbr) ?? snap.players[0];
       const t = snap.teams.find((x) => x.abbr === p.team);
-      const { container, unmount } = render(<CardView card={p} team={t} size="lg" />);
-      expect(container.querySelector(".ro-number")).not.toBeNull();
+      const { container, unmount } = render(<CardView card={p} team={t} size="lg" tab="M26" />);
+      expect(container.querySelector(".ro-number-zone .digits")).not.toBeNull();
       unmount();
     }
   });

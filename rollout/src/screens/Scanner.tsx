@@ -442,7 +442,7 @@ export function Scanner({ save, setSave, snapshots }: {
         <section className="side">
           {result ? (
             <div className="result-col">
-              <CardView card={result} team={teams[result.team]} size="lg" highlight />
+              <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />
               <div className="result-actions">
                 <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); planRef.current = null; }}>Scan again</button>
                 <button onClick={() => {

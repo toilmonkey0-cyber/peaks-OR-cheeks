@@ -1,147 +1,265 @@
-.ro-card {
-  --accent: var(--tier-accent, #8b98ad);
+/* ── Aaron's template: premium notched trading card ────────────────────────
+   Chrome frame (chamfered corners via nested clip-path) → team-gradient face
+   → diagonal streaks/halftone/sheen → stacked name + gold position → OVR
+   plaque → giant outlined jersey number → translucent 2-col stats slab. */
+
+.ro-frame {
+  --tier-glow: transparent;
   position: relative;
-  background:
-    radial-gradient(85% 60% at 82% 16%, color-mix(in srgb, var(--tp) 14%, transparent) 0%, transparent 60%),
-    radial-gradient(70% 55% at 12% 88%, color-mix(in srgb, var(--ts) 11%, transparent) 0%, transparent 62%),
-    linear-gradient(160deg, #131a2e 0%, #0c1120 70%);
-  border: 1px solid #1f2a44;
-  border-radius: 14px;
-  padding: 10px;
+  width: min(360px, 92vw);
+  padding: 3px;
+  background: linear-gradient(160deg, #4a5670 0%, #232c42 30%, #4a5670 60%, #1a2236 100%);
+  clip-path: polygon(26px 0, 100% 0, 100% calc(100% - 26px), calc(100% - 26px) 100%, 0 100%, 0 26px);
+  filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.5));
+}
+.ro-frame.tier-legend { --tier-glow: rgba(251, 191, 36, 0.3); }
+.ro-frame.tier-elite { --tier-glow: rgba(167, 139, 250, 0.25); }
+
+.ro-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  padding: 40px 16px 14px;
+  min-height: 398px;
+  clip-path: polygon(24px 0, 100% 0, 100% calc(100% - 24px), calc(100% - 24px) 100%, 0 100%, 0 24px);
+  background:
+    radial-gradient(90% 55% at 78% 12%, color-mix(in srgb, var(--tp) 30%, transparent) 0%, transparent 62%),
+    linear-gradient(168deg,
+      color-mix(in srgb, var(--tp) 34%, #0a0e1a) 0%,
+      color-mix(in srgb, var(--tp) 15%, #0a0e1a) 48%,
+      color-mix(in srgb, var(--ts) 24%, #0a0e1a) 100%);
+  color: #eef2fa;
   overflow: hidden;
 }
+
+/* diagonal light streaks + halftone + sheen layers */
 .ro-card::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 4px;
-  background: var(--accent);
+  inset: 0;
+  background:
+    repeating-linear-gradient(-24deg,
+      transparent 0 46px,
+      rgba(255, 255, 255, 0.045) 46px 49px,
+      transparent 49px 120px,
+      rgba(255, 255, 255, 0.028) 120px 124px),
+    radial-gradient(circle at 24% 24%, rgba(255, 255, 255, 0.05) 1px, transparent 1.4px);
+  background-size: auto, 9px 9px;
+  pointer-events: none;
 }
-.ro-card.tier-common { --tier-accent: #8b98ad; }
-.ro-card.tier-rare { --tier-accent: #38bdf8; }
-.ro-card.tier-elite { --tier-accent: #a78bfa; }
-.ro-card.tier-legend { --tier-accent: #fbbf24; }
-.ro-card.tier-legend { box-shadow: 0 0 22px rgba(251, 191, 36, 0.22); }
-.ro-card.tier-elite { box-shadow: 0 0 18px rgba(167, 139, 250, 0.18); }
-
-.ro-card .xf-badge {
+.ro-card::after {
+  content: "";
   position: absolute;
-  top: 12px;
-  right: 10px;
+  top: -40%;
+  left: -30%;
+  width: 66%;
+  height: 180%;
+  background: linear-gradient(80deg, transparent 0%, rgba(255, 255, 255, 0.07) 45%, rgba(255, 255, 255, 0.11) 50%, rgba(255, 255, 255, 0.07) 55%, transparent 100%);
+  transform: rotate(0.001deg);
+  pointer-events: none;
+}
+
+/* neon inner border in team color + tier glow */
+.ro-card { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tp) 55%, rgba(255, 255, 255, 0.12)); }
+.ro-frame { box-shadow: 0 0 26px var(--tier-glow); }
+
+/* ── header tabs ── */
+.tab {
+  position: absolute;
+  top: 8px;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
+  letter-spacing: 0.12em;
+  color: #aab6cf;
+  background: rgba(4, 8, 16, 0.72);
+  padding: 3px 10px;
+  border-radius: 3px;
+}
+.tab-l { left: 16px; }
+.tab-r { right: 16px; color: #f0a830; }
+
+.xf-flag {
+  position: absolute;
+  top: 34px;
+  right: 16px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
   border-radius: 999px;
   color: #0a0e1a;
   background: linear-gradient(90deg, #fbbf24, #f97316, #fbbf24);
   background-size: 200% 100%;
   animation: xf-shimmer 2.2s linear infinite;
+  z-index: 3;
 }
 @keyframes xf-shimmer { to { background-position: -200% 0; } }
 
-.ro-card-top { width: 100%; display: flex; justify-content: space-between; align-items: baseline; padding: 2px 4px; }
-.ro-card-top .rating { font-size: 26px; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
-.size-sm .ro-card-top .rating { font-size: 16px; }
-.ro-card-top .pos-team { font-size: 11px; color: #7d8aa5; font-weight: 600; letter-spacing: 0.08em; }
+/* ── identity: stacked name + position/city, upper-left ── */
+.ro-identity { position: relative; z-index: 2; margin-top: 10px; }
+.ro-name { display: flex; flex-direction: column; line-height: 1.02; }
+.ro-name .first { font-size: 21px; font-weight: 800; letter-spacing: 0.03em; color: #f2f5fc; }
+.ro-name .last { font-size: 26px; font-weight: 900; letter-spacing: 0.03em; color: #ffffff; }
+.ro-pos { margin-top: 6px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; }
+.gold { color: #f0a830; }
+.ro-pos .city { color: #e8edf7; }
 
-/* ── jersey number as the artwork ─────────────────────────────────────────
-   A duotone team-gradient nameplate: the plate is a skewed parallelogram
-   (speed lives in the block, never in the glyphs), the number sits crisp and
-   upright on it. Ink auto-flips for bright palettes. No iconography. */
-.ro-number-stage {
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 0 0;
+/* ── OVR plaque, top-right ── */
+.ro-ovr {
+  position: absolute;
+  top: 52px;
+  right: 18px;
+  z-index: 2;
+  text-align: right;
+  background: rgba(4, 8, 16, 0.66);
+  border-radius: 8px;
+  padding: 8px 12px 7px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
-.ro-plate {
-  transform: skewX(-9deg);
-  padding: 0.04em 0.24em;
-  border-radius: 0.06em;
-  background: linear-gradient(135deg, var(--tp) 8%, var(--ts) 92%);
-  box-shadow:
-    0 0.09em 0.5em color-mix(in srgb, var(--tp) 45%, transparent),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-}
-.ro-number {
+.ro-ovr b {
   display: block;
-  transform: skewX(9deg); /* counter-skew keeps the digits upright */
+  font-size: 40px;
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  text-shadow: 0 0.02em 0.08em rgba(0, 0, 0, 0.28);
+  line-height: 0.95;
+  color: #ffffff;
   font-variant-numeric: tabular-nums;
 }
-.size-lg .ro-number { font-size: clamp(84px, 17vw, 132px); }
-.size-md .ro-number { font-size: 46px; }
-
-.ro-number-rule {
-  height: 3px;
-  width: 52%;
-  margin-top: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, var(--tp) 30%, var(--ts) 70%, transparent);
-  opacity: 0.85;
+.ro-ovr i {
+  display: block;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: #aab6cf;
+  margin-top: 3px;
+  padding-bottom: 4px;
+  border-bottom: 3px solid var(--tier-accent-strong, #f0a830);
 }
+.ro-frame.tier-common .ro-ovr i { --tier-accent-strong: #8b98ad; }
+.ro-frame.tier-rare .ro-ovr i { --tier-accent-strong: #38bdf8; }
+.ro-frame.tier-elite .ro-ovr i { --tier-accent-strong: #a78bfa; }
+.ro-frame.tier-legend .ro-ovr i { --tier-accent-strong: #fbbf24; }
 
-.ro-card-name { font-weight: 800; color: #e8edf7; text-align: center; letter-spacing: 0.02em; }
-.size-lg .ro-card-name { font-size: 25px; text-transform: uppercase; letter-spacing: 0.06em; }
-.size-md .ro-card-name { font-size: 15px; }
-.size-sm .ro-card-name { font-size: 11px; }
-
-.ro-card-attrs {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  width: 100%;
-  padding: 0;
-  margin: 2px 0 0;
-}
-.ro-card-attrs li {
-  background: #0e1526;
-  border: 1px solid #1c2740;
-  border-radius: 8px;
+/* ── giant outlined jersey number, own band ── */
+.ro-number-zone {
+  position: relative;
+  z-index: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 5px 2px;
+  align-items: baseline;
+  justify-content: center;
+  margin: 14px 0 22px;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 3px color-mix(in srgb, var(--tp) 62%, #ffffff);
+  text-shadow: 0 0 26px color-mix(in srgb, var(--tp) 45%, transparent);
+  font-variant-numeric: tabular-nums;
 }
-.attr-label { font-size: 10px; letter-spacing: 0.1em; color: #67748f; font-weight: 700; }
-.attr-value { font-size: 17px; font-weight: 800; color: #dbe4f3; font-variant-numeric: tabular-nums; }
+.ro-number-zone .hash { font-size: 48px; font-weight: 900; opacity: 0.55; margin-right: 6px; }
+.ro-number-zone .digits { font-size: 100px; font-weight: 900; letter-spacing: -0.01em; }
 
-.ro-card-abilities { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.ro-card-abilities span {
-  font-size: 11px;
+/* ── stats slab: 2 cols × 3 rows, label left / value right, underline bar ── */
+.ro-stats {
+  list-style: none;
+  position: relative;
+  z-index: 2;
+  margin: auto 0 0;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 18px;
+  row-gap: 9px;
+  background: rgba(4, 8, 16, 0.62);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+.ro-stats li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  position: relative;
+  padding-bottom: 5px;
+}
+.ro-stats li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.09);
+}
+.ro-stats .lab { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: #93a1bd; }
+.ro-stats .val { font-size: 15px; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; }
+.ro-stats .bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tp) 70%, #ffffff), var(--ts));
+  opacity: 0.9;
+}
+
+/* ── abilities + meta ── */
+.ro-abilities { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 9px; }
+.ro-abilities span {
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.04em;
   color: #f5c66b;
-  background: rgba(251, 191, 36, 0.1);
+  background: rgba(251, 191, 36, 0.09);
   border: 1px solid rgba(251, 191, 36, 0.35);
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 2px 9px;
 }
-.ro-card-meta { font-size: 11px; color: #5c6980; text-align: center; }
+.ro-meta {
+  margin-top: 7px;
+  font-size: 10.5px;
+  color: rgba(232, 237, 247, 0.5);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
 
-.ro-card.highlight { animation: card-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.ro-frame.highlight { animation: card-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1); }
 @keyframes card-in {
   from { transform: scale(0.72) translateY(24px); opacity: 0; filter: blur(6px); }
   to { transform: none; opacity: 1; filter: none; }
 }
 
-/* explicit widths: the number's gradient text contributes no intrinsic size,
-   so the card can't shrink-to-fit it reliably */
-.size-lg { width: min(360px, 92vw); }
-.size-sm { min-width: 84px; }
+/* ── sm (history rail) — compact line, team-tinted ── */
+.ro-card.size-sm {
+  --tier-accent: #8b98ad;
+  clip-path: none;
+  min-height: 0;
+  padding: 8px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--tp) 22%, #101728) 0%,
+      color-mix(in srgb, var(--ts) 14%, #0c1120) 100%);
+  border: 1px solid #1f2a44;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tp) 30%, transparent);
+}
+.ro-card.size-sm.tier-legend { --tier-accent: #fbbf24; box-shadow: 0 0 14px rgba(251, 191, 36, 0.2); }
+.ro-card.size-sm.tier-elite { --tier-accent: #a78bfa; }
+.ro-card.size-sm.tier-rare { --tier-accent: #38bdf8; }
+.ro-card.size-sm::before, .ro-card.size-sm::after { content: none; }
+.ro-card.size-sm .ro-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.ro-card.size-sm .rating { font-size: 16px; font-weight: 900; color: var(--tier-accent); }
+.ro-card.size-sm .pos-team { font-size: 10px; color: #93a1bd; font-weight: 700; }
+.ro-card.size-sm .ro-card-name { font-size: 11px; font-weight: 700; color: #e8edf7; }
+
+.size-md .ro-card { min-height: 300px; }
+.size-md .ro-name .first { font-size: 15px; }
+.size-md .ro-name .last { font-size: 18px; }
+.size-md .ro-number-zone .digits { font-size: 72px; }
+.size-md .ro-number-zone .hash { font-size: 34px; }
+.size-md .ro-ovr b { font-size: 26px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ro-card.highlight { animation: none; }
-  .ro-card .xf-badge { animation: none; }
+  .ro-frame.highlight { animation: none; }
+  .xf-flag { animation: none; }
 }
