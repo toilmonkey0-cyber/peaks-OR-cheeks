@@ -59,9 +59,18 @@
 .source-toggle button:disabled { opacity: 0.5; cursor: default; }
 .topbar .brand {
   font-weight: 900;
-  letter-spacing: 0.34em;
-  font-size: 15px;
+  letter-spacing: 0.16em;
+  font-size: 14px;
   color: var(--ink);
+  white-space: nowrap;
+}
+.topbar .brand em {
+  font-style: normal;
+  font-size: 9px;
+  color: #f0a830;
+  letter-spacing: 0.22em;
+  padding: 0 0.45em;
+  vertical-align: 2px;
 }
 .topbar .pulls { font-size: 12px; color: #9aa8c4; font-variant-numeric: tabular-nums; }
 .best-chip {

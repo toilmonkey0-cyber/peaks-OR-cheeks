@@ -4,8 +4,9 @@ import { App } from "./App";
 
 describe("App", () => {
   it("renders the scanner shell", () => {
-    render(<App />);
-    expect(screen.getByText("ROLLOUT")).toBeInTheDocument();
+    const { container } = render(<App />);
+    expect(container.textContent).toContain("PEAKS");
+    expect(container.textContent).toContain("CHEEKS");
     expect(screen.getByTestId("scan-btn")).toBeInTheDocument();
     expect(screen.getByTestId("lock-row")).toBeInTheDocument();
     expect(screen.getByTestId("history")).toBeInTheDocument();

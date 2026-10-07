@@ -384,7 +384,7 @@ export function Scanner({ save, setSave, snapshots }: {
       style={{ "--tp": team?.primary ?? "#1e293b", "--ts": team?.secondary ?? "#0f172a" } as React.CSSProperties}>
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
-        <span className="brand">ROLLOUT</span>
+        <span className="brand">PEAKS<em>OR</em>CHEEKS</span>
         <div className="source-toggle" role="tablist" aria-label="Ratings source" data-testid="source-toggle">
           {SOURCES.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={source === s}
@@ -454,8 +454,8 @@ export function Scanner({ save, setSave, snapshots }: {
             </div>
           ) : (
             <div className="placeholder" data-testid="placeholder">
-              <p>Pull the unknown.</p>
-              <p className="sub">Every scan locks a new player — position, team, name, rating.</p>
+              <p>Peak or cheeks.</p>
+              <p className="sub">One button decides. Position, team, name, rating — real players, real ratings, zero mercy.</p>
             </div>
           )}
           <div className="history-rail" data-testid="history">

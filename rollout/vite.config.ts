@@ -3,15 +3,18 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // GITHUB_PAGES=true (set by the deploy workflow) builds with the repo
+  // subpath base; local dev/preview stays at "/"
+  base: process.env.GITHUB_PAGES ? "/peaks-OR-cheeks/" : "/",
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png', 'maskable-icon-512x512.png', 'icon.svg'],
       manifest: {
-        name: 'Rollout',
-        short_name: 'Rollout',
-        description: 'Random pro football player scout',
+        name: 'Peaks or Cheeks',
+        short_name: 'PeaksOrCheeks',
+        description: 'One button. Two fates. Random pro football player pulls.',
         display: 'standalone',
         orientation: 'any',
         background_color: '#0a0e1a',
