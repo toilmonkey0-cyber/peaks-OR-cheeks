@@ -1,5 +1,5 @@
 import type { Card } from "@/data/schema";
-import { HISTORY_MAX } from "@/engine/config";
+import { PULL_LOG_MAX } from "@/engine/config";
 import { nextCheekStreak, type Verdict } from "@/engine/draw";
 
 const KEY = "rollout.save.v1";
@@ -11,7 +11,7 @@ export interface SourceStats {
   pulls: number;
   bestId: string | null;
   bestRating: number; // -1 = no best yet
-  historyIds: string[];
+  pullLog: string[]; // one entry per pull (duplicates kept), newest first — luck strip + vault
   cheekStreak: number;
   peaks: number;
   cheeks: number; // cheeks + atomic combined (atomic is a cheeks flavor)
@@ -33,7 +33,7 @@ export interface SaveState {
 }
 
 export const freshStats = (): SourceStats =>
-  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0, peaks: 0, cheeks: 0,
+  ({ pulls: 0, bestId: null, bestRating: -1, pullLog: [], cheekStreak: 0, peaks: 0, cheeks: 0,
      peaksExp: 0, cheeksExp: 0, varP: 0, varC: 0 });
 
 export const freshSave = (): SaveState => ({
@@ -49,7 +49,7 @@ export function loadSave(): SaveState {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return freshSave();
-    const parsed = JSON.parse(raw) as Partial<SaveState> & Partial<SourceStats>;
+    const parsed = JSON.parse(raw) as Partial<SaveState> & Partial<SourceStats> & { historyIds?: string[] };
     // v1 saves (pre-source-toggle) kept pulls/best*/history at the top level → fold into m26
     const legacy = typeof parsed.pulls === "number" || parsed.bestId || Array.isArray(parsed.historyIds);
     const merge = (s: Partial<SourceStats>): SourceStats => ({ ...freshStats(), ...s });
@@ -59,13 +59,13 @@ export function loadSave(): SaveState {
             pulls: typeof parsed.pulls === "number" ? parsed.pulls : 0,
             bestId: parsed.bestId ?? null,
             bestRating: typeof parsed.bestRating === "number" ? parsed.bestRating : -1,
-            historyIds: Array.isArray(parsed.historyIds) ? parsed.historyIds : [],
+            pullLog: Array.isArray(parsed.historyIds) ? parsed.historyIds.slice(0, PULL_LOG_MAX) : [],
           }),
           m27: freshStats(),
         }
       : { m26: merge(parsed.stats?.m26 ?? {}), m27: merge(parsed.stats?.m27 ?? {}) };
     for (const s of SOURCES) {
-      statsBase[s].historyIds = (statsBase[s].historyIds ?? []).slice(0, HISTORY_MAX);
+      statsBase[s].pullLog = (statsBase[s].pullLog ?? []).slice(0, PULL_LOG_MAX);
       // pre-luck-meter saves carry real pulls but no fate tab → backfill with
       // the ALL-pool approximation so the gauge starts honest-ish
       const st = statsBase[s];
@@ -114,7 +114,7 @@ export function recordPull(save: SaveState, card: Card, verdict: Verdict,
     pulls: cur.pulls + 1,
     bestId: isNewBest ? card.playerId : cur.bestId,
     bestRating: isNewBest ? card.rating : cur.bestRating,
-    historyIds: [card.playerId, ...cur.historyIds.filter((id) => id !== card.playerId)].slice(0, HISTORY_MAX),
+    pullLog: [card.playerId, ...cur.pullLog].slice(0, PULL_LOG_MAX),
     cheekStreak: streak,
     peaks: cur.peaks + (verdict === "peak" ? 1 : 0),
     cheeks: cur.cheeks + (verdict && verdict !== "peak" ? 1 : 0),

@@ -1,0 +1,98 @@
+.luck-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 10px;
+}
+
+.strip-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  padding: 0 4px;
+  background: linear-gradient(180deg, rgba(14, 21, 38, 0.5), rgba(10, 14, 26, 0.7));
+  border: 1px solid #1c2740;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.strip-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(125, 138, 165, 0.25);
+}
+
+.strip-empty {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  color: #33405e;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  width: 100%;
+  text-align: center;
+}
+
+/* verdict ticks: rise above the line (peaks) or sag below (cheeks) */
+.tick {
+  position: relative;
+  z-index: 1;
+  width: 6px;
+  border-radius: 2px;
+  align-self: center;
+  flex: 0 0 auto;
+}
+.tick.mid {
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #4a5878;
+}
+.tick.peak {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: linear-gradient(180deg, #fde68a, #f0a830);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+.tick.cheeks {
+  align-self: flex-end;
+  margin-bottom: 4px;
+  background: linear-gradient(180deg, #a06a44, #6b4a33);
+}
+.tick.atomic {
+  align-self: flex-end;
+  margin-bottom: 4px;
+  background: linear-gradient(180deg, #b0522d, #5c2e1c);
+  box-shadow: 0 0 8px rgba(176, 82, 45, 0.45);
+}
+
+.vault-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #0e1526;
+  border: 1px solid #263352;
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #c5d1e8;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.vault-btn:active { transform: scale(0.96); }
+.vault-btn:hover { border-color: #3b4c78; }
+.football-mark { width: 30px; height: 20px; display: block; }
+.vault-count {
+  font-size: 13px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}

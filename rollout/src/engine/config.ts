@@ -19,7 +19,7 @@ export const DELAYS = {
 } as const;
 
 export const REEL_SIZE = 30;         // names in the stream (incl. winner last)
-export const HISTORY_MAX = 12;
+export const PULL_LOG_MAX = 60;      // per-pull log cap (luck strip + vault)
 
 export const TIER_RANK: Record<Tier, number> = { common: 0, rare: 1, elite: 2, legend: 3 };
 export const isBigTier = (t: Tier) => TIER_RANK[t] >= TIER_RANK.elite;

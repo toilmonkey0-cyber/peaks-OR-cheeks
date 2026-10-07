@@ -13,6 +13,8 @@ import { sourceLabel } from "@/data/snapshot";
 import { poolVerdictRates } from "@/engine/luck";
 import { CardView } from "@/components/CardView";
 import { LuckGauge } from "@/components/LuckGauge";
+import { LuckStrip, ticksFromLog } from "@/components/LuckStrip";
+import { Vault } from "@/components/Vault";
 import "./Scanner.css";
 
 type Phase = "idle" | "charging" | "scanning" | "result";
@@ -52,6 +54,7 @@ export function Scanner({ save, setSave, snapshots }: {
     useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string } | null>(null);
   const celebrationToken = useRef(0);
   const [manualSheet, setManualSheet] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
   const sheetOpen = (result !== null && phase === "result") || manualSheet;
@@ -101,7 +104,7 @@ export function Scanner({ save, setSave, snapshots }: {
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
   const best = stats.bestId ? byId[stats.bestId] : null;
-  const history = stats.historyIds.map((id) => byId[id]).filter(Boolean);
+  const ticks = useMemo(() => ticksFromLog(stats.pullLog, byId), [stats.pullLog, byId]);
 
   const shownTeam = result ?? (planRef.current?.card ?? null);
 
@@ -314,6 +317,7 @@ export function Scanner({ save, setSave, snapshots }: {
     setCelebration(null);
     celebrationToken.current++;
     setManualSheet(false);
+    setVaultOpen(false);
     setLocked({ pos: false, team: false, name: false, ovr: false });
     setPhase("scanning");
 
@@ -481,7 +485,7 @@ export function Scanner({ save, setSave, snapshots }: {
           <label><input type="checkbox" checked={save.hapticsOn}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
           <button className="reset" onClick={() => setSave((s) => ({
-            ...s, stats: { ...s.stats, [s.source]: { pulls: 0, bestId: null, bestRating: -1, historyIds: [] } },
+            ...s, stats: { ...s.stats, [s.source]: { pulls: 0, bestId: null, bestRating: -1, pullLog: [], cheekStreak: 0, peaks: 0, cheeks: 0, peaksExp: 0, cheeksExp: 0, varP: 0, varC: 0 } },
           }))}>Reset session</button>
         </div>
       )}
@@ -532,9 +536,7 @@ export function Scanner({ save, setSave, snapshots }: {
               <p className="sub">One button decides. Position, team, name, rating — real players, real ratings, zero mercy.</p>
             </div>
           )}
-          <div className="history-rail" data-testid="history">
-            {history.map((c) => <CardView key={c.playerId} card={c} team={teams[c.team]} size="sm" />)}
-          </div>
+          <LuckStrip ticks={ticks} onOpen={() => { pulse(HAPTICS.ui); setVaultOpen(true); }} />
         </section>
       </main>
 
@@ -547,6 +549,10 @@ export function Scanner({ save, setSave, snapshots }: {
             onClick={() => { pulse(HAPTICS.ui); setSave((s) => ({ ...s, group: g })); }}>{g}</button>
         ))}
       </nav>
+      {vaultOpen && (
+        <Vault log={stats.pullLog} byId={byId} teams={teams} bestId={stats.bestId}
+          onClose={() => { pulse(HAPTICS.ui); setVaultOpen(false); }} />
+      )}
       {celebration && (
         <div className={`celebrate kind-${celebration.kind}`} data-testid="celebration"
           role="status" onClick={() => { celebrationToken.current++; setCelebration(null); }}>

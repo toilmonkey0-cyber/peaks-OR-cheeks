@@ -9,7 +9,7 @@ describe("App", () => {
     expect(container.textContent).toContain("CHEEKS");
     expect(screen.getByTestId("scan-btn")).toBeInTheDocument();
     expect(screen.getByTestId("lock-row")).toBeInTheDocument();
-    expect(screen.getByTestId("history")).toBeInTheDocument();
+    expect(screen.getByTestId("luck-strip")).toBeInTheDocument();
     expect(screen.getByText("ALL")).toBeInTheDocument();
   });
 });

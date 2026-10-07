@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Card } from "@/data/schema";
 import { freshSave, freshStats, loadSave, recordPull, writeSave } from "./storage";
-import { HISTORY_MAX } from "@/engine/config";
+import { PULL_LOG_MAX } from "@/engine/config";
 
 const card = (id: string, rating: number): Card => ({
   playerId: id, name: id, fullName: id, position: "WR", team: "KC", jersey: 1, age: 25,
@@ -34,7 +34,7 @@ describe("storage", () => {
     expect(save.source).toBe("m26");
     // luck backfill: pre-meter pulls get the ALL-pool approximation of fate's tab
     expect(save.stats.m26.pulls).toBe(5);
-    expect(save.stats.m26.historyIds).toEqual(["x", "y"]);
+    expect(save.stats.m26.pullLog).toEqual(["x", "y"]);
     expect(save.stats.m26.peaks).toBe(0);
     expect(save.stats.m26.cheeks).toBe(0);
     expect(save.stats.m26.peaksExp).toBeCloseTo(0.475, 8);
@@ -55,19 +55,16 @@ describe("storage", () => {
     expect(save.stats.m27).toMatchObject({ pulls: 1, bestId: "a27", bestRating: 75, cheekStreak: 1, peaks: 0, cheeks: 1 });
   });
 
-  it("records pulls, tracks the best, dedupes and caps history", () => {
+  it("records one log entry per pull (duplicates kept) and caps the log", () => {
     let save = freshSave();
-    for (let i = 0; i < HISTORY_MAX + 4; i++) {
-      save = recordPull(save, card(`p${i}`, 60 + i), i % 4 === 0 ? "cheeks" : null).save;
+    for (let i = 0; i < PULL_LOG_MAX + 4; i++) {
+      save = recordPull(save, card(`p${i % 10}`, 60 + i), i % 4 === 0 ? "cheeks" : null).save;
     }
-    expect(save.stats.m26.pulls).toBe(HISTORY_MAX + 4);
-    expect(save.stats.m26.bestRating).toBe(60 + HISTORY_MAX + 3);
-    expect(save.stats.m26.bestId).toBe(`p${HISTORY_MAX + 3}`);
-    expect(save.stats.m26.historyIds).toHaveLength(HISTORY_MAX);
-    // re-pull an old card: moves to front, no duplicate
-    save = recordPull(save, card("p0", 60), "cheeks").save;
-    expect(save.stats.m26.historyIds[0]).toBe("p0");
-    expect(save.stats.m26.historyIds.filter((id) => id === "p0")).toHaveLength(1);
+    expect(save.stats.m26.pulls).toBe(PULL_LOG_MAX + 4);
+    expect(save.stats.m26.pullLog).toHaveLength(PULL_LOG_MAX);
+    expect(save.stats.m26.pullLog[0]).toBe("p3"); // newest first (i=63 → 63%10)
+    // duplicates preserved: ten distinct ids across 64 pulls
+    expect(new Set(save.stats.m26.pullLog).size).toBe(10);
   });
 
   it("counts peaks and cheeks, and returns the streak", () => {
