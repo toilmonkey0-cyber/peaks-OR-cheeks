@@ -1,5 +1,6 @@
 import type { Card } from "@/data/schema";
 import { HISTORY_MAX } from "@/engine/config";
+import { nextCheekStreak, type Verdict } from "@/engine/draw";
 
 const KEY = "rollout.save.v1";
 
@@ -12,6 +13,8 @@ export interface SourceStats {
   bestRating: number; // -1 = no best yet
   historyIds: string[];
   cheekStreak: number;
+  peaks: number;
+  cheeks: number; // cheeks + atomic combined (atomic is a cheeks flavor)
 }
 
 export interface SaveState {
@@ -24,7 +27,7 @@ export interface SaveState {
 }
 
 export const freshStats = (): SourceStats =>
-  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0 });
+  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0, peaks: 0, cheeks: 0 });
 
 export const freshSave = (): SaveState => ({
   source: "m26",
@@ -83,20 +86,25 @@ export function writeSave(save: SaveState): void {
 export interface PullOutcome {
   save: SaveState;
   isNewBest: boolean;
+  streak: number;
 }
 
-export function recordPull(save: SaveState, card: Card, cheekStreak: number): PullOutcome {
+export function recordPull(save: SaveState, card: Card, verdict: Verdict): PullOutcome {
   const cur = save.stats[save.source];
   const isNewBest = card.rating > cur.bestRating;
+  const streak = nextCheekStreak(cur.cheekStreak, verdict);
   const next: SourceStats = {
     pulls: cur.pulls + 1,
     bestId: isNewBest ? card.playerId : cur.bestId,
     bestRating: isNewBest ? card.rating : cur.bestRating,
     historyIds: [card.playerId, ...cur.historyIds.filter((id) => id !== card.playerId)].slice(0, HISTORY_MAX),
-    cheekStreak,
+    cheekStreak: streak,
+    peaks: cur.peaks + (verdict === "peak" ? 1 : 0),
+    cheeks: cur.cheeks + (verdict && verdict !== "peak" ? 1 : 0),
   };
   return {
     save: { ...save, stats: { ...save.stats, [save.source]: next } },
     isNewBest,
+    streak,
   };
 }

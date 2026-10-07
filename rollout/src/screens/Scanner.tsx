@@ -4,7 +4,7 @@ import {
   ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
   STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
 } from "@/engine/config";
-import { filterPool, nextCheekStreak, planScan, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
+import { filterPool, planScan, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
@@ -354,8 +354,9 @@ export function Scanner({ save, setSave, snapshots }: {
 
       const verdict = verdictOf(card);
       const priorStreak = save.stats[save.source].cheekStreak;
-      const streak = nextCheekStreak(priorStreak, verdict);
-      setSave(recordPull(save, card, streak).save);
+      const outcome = recordPull(save, card, verdict);
+      const streak = outcome.streak;
+      setSave(outcome.save);
       if (card.tier === "legend") {
         const team = teams[card.team];
         burst(["#fbbf24", team?.primary ?? "#38bdf8", "#ffffff", team?.secondary ?? "#a78bfa"]);
@@ -452,6 +453,15 @@ export function Scanner({ save, setSave, snapshots }: {
           BEST {best.rating} · {best.name}</span>}
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
       </header>
+      <div className="scoreline" data-testid="scoreline">
+        <b className="gold">{stats.peaks} {stats.peaks === 1 ? "peak" : "peaks"}</b>
+        <span className="sep">·</span>
+        <b className="brown">{stats.cheeks} {stats.cheeks === 1 ? "cheek" : "cheeks"}</b>
+        {stats.cheekStreak >= 2 && <>
+          <span className="sep">·</span>
+          <b className="streak">streak {stats.cheekStreak}</b>
+        </>}
+      </div>
 
       {showSettings && (
         <div className="settings" role="dialog" aria-label="Settings" data-testid="settings">

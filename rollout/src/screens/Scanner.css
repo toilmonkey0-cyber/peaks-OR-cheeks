@@ -6,7 +6,7 @@
   --dim: #7d8aa5;
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   background:
     radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--tp) 16%, transparent) 0%, transparent 55%),
     var(--bg);
@@ -97,6 +97,24 @@
   font-size: 16px;
   cursor: pointer;
 }
+
+.scoreline {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #7d8aa5;
+}
+.scoreline b { font-variant-numeric: tabular-nums; }
+.scoreline .gold { color: #f0a830; }
+.scoreline .brown { color: #c99a6e; }
+.scoreline .streak { color: #9aa8c4; }
+.scoreline .sep { color: #3d4a66; font-weight: 400; }
 
 .settings {
   position: absolute;
