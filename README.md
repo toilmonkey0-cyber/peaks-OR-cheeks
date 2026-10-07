@@ -70,7 +70,7 @@ npm test           # 32 tests, zero mercy
 npm run build && npx vite preview   # production build at :4174
 ```
 
-Requires Node 20+. That's it — the full player dataset ships in the repo.
+Requires Node 22+. That's it — the full player dataset ships in the repo.
 
 ## Refresh the data
 
