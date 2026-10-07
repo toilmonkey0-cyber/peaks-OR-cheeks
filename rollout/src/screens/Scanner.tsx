@@ -10,7 +10,9 @@ import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
 import { recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
 import { sourceLabel } from "@/data/snapshot";
+import { poolVerdictRates } from "@/engine/luck";
 import { CardView } from "@/components/CardView";
+import { LuckGauge } from "@/components/LuckGauge";
 import "./Scanner.css";
 
 type Phase = "idle" | "charging" | "scanning" | "result";
@@ -95,6 +97,7 @@ export function Scanner({ save, setSave, snapshots }: {
     () => Object.fromEntries(snapshot.teams.map((t) => [t.abbr, t])), [snapshot]);
   const pool = useMemo(() => filterPool(snapshot.players, GROUPS[save.group] ?? null),
     [snapshot.players, save.group]);
+  const verdictRates = useMemo(() => poolVerdictRates(pool), [pool]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
   const best = stats.bestId ? byId[stats.bestId] : null;
@@ -359,7 +362,7 @@ export function Scanner({ save, setSave, snapshots }: {
 
       const verdict = verdictOf(card);
       const priorStreak = save.stats[save.source].cheekStreak;
-      const outcome = recordPull(save, card, verdict);
+      const outcome = recordPull(save, card, verdict, verdictRates.pPeak, verdictRates.pCheeks);
       const streak = outcome.streak;
       setSave(outcome.save);
       if (card.tier === "legend") {
@@ -510,6 +513,7 @@ export function Scanner({ save, setSave, snapshots }: {
         </section>
 
         <section className={`side${sheetOpen ? " open" : ""}`}>
+          <LuckGauge stats={stats} />
           {result ? (
             <div className={celebration && celebration.kind !== "peak" ? "result-col droop" : "result-col"}>
               <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />

@@ -15,6 +15,12 @@ export interface SourceStats {
   cheekStreak: number;
   peaks: number;
   cheeks: number; // cheeks + atomic combined (atomic is a cheeks flavor)
+  // fate's tab: expected verdict counts + variance accumulators, summed at
+  // pull time so filter switches stay statistically exact
+  peaksExp: number;
+  cheeksExp: number;
+  varP: number;
+  varC: number;
 }
 
 export interface SaveState {
@@ -27,7 +33,8 @@ export interface SaveState {
 }
 
 export const freshStats = (): SourceStats =>
-  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0, peaks: 0, cheeks: 0 });
+  ({ pulls: 0, bestId: null, bestRating: -1, historyIds: [], cheekStreak: 0, peaks: 0, cheeks: 0,
+     peaksExp: 0, cheeksExp: 0, varP: 0, varC: 0 });
 
 export const freshSave = (): SaveState => ({
   source: "m26",
@@ -59,6 +66,15 @@ export function loadSave(): SaveState {
       : { m26: merge(parsed.stats?.m26 ?? {}), m27: merge(parsed.stats?.m27 ?? {}) };
     for (const s of SOURCES) {
       statsBase[s].historyIds = (statsBase[s].historyIds ?? []).slice(0, HISTORY_MAX);
+      // pre-luck-meter saves carry real pulls but no fate tab → backfill with
+      // the ALL-pool approximation so the gauge starts honest-ish
+      const st = statsBase[s];
+      if (st.pulls > 0 && st.peaksExp === 0 && st.cheeksExp === 0) {
+        st.peaksExp = st.pulls * 0.095;
+        st.cheeksExp = st.pulls * 0.09;
+        st.varP = st.pulls * 0.095 * 0.905;
+        st.varC = st.pulls * 0.09 * 0.91;
+      }
     }
     return {
       ...freshSave(),
@@ -89,7 +105,8 @@ export interface PullOutcome {
   streak: number;
 }
 
-export function recordPull(save: SaveState, card: Card, verdict: Verdict): PullOutcome {
+export function recordPull(save: SaveState, card: Card, verdict: Verdict,
+  pPeak = 0.095, pCheeks = 0.09): PullOutcome {
   const cur = save.stats[save.source];
   const isNewBest = card.rating > cur.bestRating;
   const streak = nextCheekStreak(cur.cheekStreak, verdict);
@@ -101,6 +118,10 @@ export function recordPull(save: SaveState, card: Card, verdict: Verdict): PullO
     cheekStreak: streak,
     peaks: cur.peaks + (verdict === "peak" ? 1 : 0),
     cheeks: cur.cheeks + (verdict && verdict !== "peak" ? 1 : 0),
+    peaksExp: cur.peaksExp + pPeak,
+    cheeksExp: cur.cheeksExp + pCheeks,
+    varP: cur.varP + pPeak * (1 - pPeak),
+    varC: cur.varC + pCheeks * (1 - pCheeks),
   };
   return {
     save: { ...save, stats: { ...save.stats, [save.source]: next } },

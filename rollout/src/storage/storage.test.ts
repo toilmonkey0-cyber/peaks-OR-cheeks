@@ -13,9 +13,9 @@ const card = (id: string, rating: number): Card => ({
 beforeEach(() => localStorage.clear());
 
 describe("storage", () => {
-  it("round-trips a save", () => {
+  it("round-trips a luck-era save", () => {
     const save = { ...freshSave(), soundOn: false, group: "QB" };
-    save.stats.m26.pulls = 3;
+    save.stats.m26 = { ...freshStats(), pulls: 3, peaksExp: 0.285, cheeksExp: 0.27, varP: 0.258, varC: 0.246 };
     writeSave(save);
     expect(loadSave()).toEqual(save);
   });
@@ -32,7 +32,15 @@ describe("storage", () => {
     }));
     const save = loadSave();
     expect(save.source).toBe("m26");
-    expect(save.stats.m26).toEqual({ pulls: 5, bestId: "x", bestRating: 91, historyIds: ["x", "y"], cheekStreak: 0, peaks: 0, cheeks: 0 });
+    // luck backfill: pre-meter pulls get the ALL-pool approximation of fate's tab
+    expect(save.stats.m26.pulls).toBe(5);
+    expect(save.stats.m26.historyIds).toEqual(["x", "y"]);
+    expect(save.stats.m26.peaks).toBe(0);
+    expect(save.stats.m26.cheeks).toBe(0);
+    expect(save.stats.m26.peaksExp).toBeCloseTo(0.475, 8);
+    expect(save.stats.m26.cheeksExp).toBeCloseTo(0.45, 8);
+    expect(save.stats.m26.varP).toBeCloseTo(5 * 0.095 * 0.905, 8);
+    expect(save.stats.m26.varC).toBeCloseTo(5 * 0.09 * 0.91, 8);
     expect(save.stats.m27).toEqual(freshStats());
     expect(save.stats.m26.cheekStreak).toBe(0);
     expect(save.hapticsOn).toBe(false);

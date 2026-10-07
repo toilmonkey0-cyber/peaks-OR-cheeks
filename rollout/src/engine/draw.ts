@@ -92,7 +92,6 @@ export function planScan(planSeed: string, pool: Card[]): ScanPlan {
 export function filterPool(players: Card[], groupPositions: string[] | null): Card[] {
   return groupPositions ? players.filter((c) => groupPositions.includes(c.position)) : players;
 }
-
 // ── verdicts ────────────────────────────────────────────────────────────────
 export type Verdict = "peak" | "cheeks" | "atomic" | null;
 
