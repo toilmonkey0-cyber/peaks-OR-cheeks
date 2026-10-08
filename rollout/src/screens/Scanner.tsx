@@ -11,6 +11,7 @@ import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } f
 import { recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
 import { sourceLabel } from "@/data/snapshot";
 import { poolVerdictRates } from "@/engine/luck";
+import { copyText } from "@/util/clipboard";
 import { CardView } from "@/components/CardView";
 import { LuckGauge } from "@/components/LuckGauge";
 import { LuckStrip, ticksFromLog } from "@/components/LuckStrip";
@@ -523,9 +524,9 @@ export function Scanner({ save, setSave, snapshots }: {
               <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />
               <div className="result-actions">
                 <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); setManualSheet(false); planRef.current = null; }}>Scan again</button>
-                <button onClick={() => {
-                  void navigator.clipboard?.writeText(cardText(result));
-                  setCopied(true);
+                <button onClick={async () => {
+                  const ok = await copyText(cardText(result));
+                  setCopied(ok);
                   after(1200, () => setCopied(false));
                 }}>{copied ? "Copied ✓" : "Copy"}</button>
               </div>
