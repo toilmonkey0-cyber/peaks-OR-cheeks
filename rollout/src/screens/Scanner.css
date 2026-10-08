@@ -155,6 +155,16 @@
 
 .stage { display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 0; }
 
+/* desktop/tablet: framed window; lock chips overlay its bottom edge */
+.focus-stage {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .focus-wrap {
   position: relative;
   width: 100%;
@@ -480,6 +490,64 @@
   100% { transform: scale(1); }
 }
 
+/* ── phone: open stage — full-bleed stream + typographic lock stack ─────── */
+@media (max-width: 699px) {
+  .focus-stage { gap: 2px; }
+  .stage { gap: 10px; }
+  .focus-wrap {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    aspect-ratio: auto;
+    height: min(30dvh, 280px);
+    min-height: 150px;
+    max-height: none;
+  }
+  .focus-wrap::after { content: none; } /* no scanline film on the open stage */
+  .lock-row {
+    position: static;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+    width: 100%;
+    max-width: 440px;
+    left: auto; right: auto; bottom: auto;
+    padding: 4px 14px 2px;
+  }
+  .lock-chip {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #1a2438;
+    border-radius: 0;
+    min-width: 0;
+    max-width: none;
+    flex: none;
+    padding: 7px 2px;
+  }
+  .lock-chip { padding: 5px 2px; }
+  .lock-chip em { font-size: 10px; letter-spacing: 0.24em; color: #566179; }
+  .lock-chip b {
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    color: #33405e;
+  }
+  .lock-chip.locked b { color: var(--accent, #38bdf8); }
+  .phase-scanning .focus-wrap { height: min(36dvh, 340px); }
+}
+
+/* smallest phones: keep the header to two rows once BEST/streak appear */
+@media (max-width: 419px) {
+  .topbar { gap: 8px; padding-bottom: 8px; }
+  .best-chip { max-width: 34vw; font-size: 11px; }
+  .pulls { font-size: 11px; }
+  .source-toggle button { padding: 6px 9px; font-size: 10px; }
+  .scoreline { font-size: 11px; padding-bottom: 6px; }
+}
+
 /* ── phone: results/history live in a slide-up sheet, page never grows ────── */
 @media (max-width: 699px) {
   .side {
@@ -503,7 +571,6 @@
   .side.open { transform: none; }
   .placeholder { display: none; }
   .history-rail { min-height: 84px; }
-  .focus-wrap { max-height: 44dvh; }
   .scan-btn { width: min(58vw, 210px); min-height: 76px; }
   .topbar .brand { font-size: 12px; }
   .best-chip { max-width: 38vw; }

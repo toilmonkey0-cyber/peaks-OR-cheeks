@@ -493,10 +493,12 @@ export function Scanner({ save, setSave, snapshots }: {
 
       <main className="stage-grid">
         <section className="stage">
-          <div className="focus-wrap">
-            <canvas ref={focusRef} className="focus" aria-label="Scan focus window" />
-            <div className="near-flash" data-testid="near-flash" aria-hidden={nearFlash === null}>
-              {nearFlash && <><b>{nearFlash}</b><span>97+ flashed by…</span></>}
+          <div className="focus-stage">
+            <div className="focus-wrap">
+              <canvas ref={focusRef} className="focus" aria-label="Scan focus window" />
+              <div className="near-flash" data-testid="near-flash" aria-hidden={nearFlash === null}>
+                {nearFlash && <><b>{nearFlash}</b><span>97+ flashed by…</span></>}
+              </div>
             </div>
             <div className="lock-row" data-testid="lock-row">
               {chip("pos", "POSITION", planRef.current?.card.position ?? "")}
