@@ -53,16 +53,20 @@
   border: 2px solid #9aa8c4;
 }
 
-.gauge-end, .gauge-mid {
-  position: absolute;
-  bottom: -4px;
-  font-size: 9px;
+/* labels live in their own row under the arc — never fight the dial geometry */
+.gauge-labels {
+  width: min(300px, 78vw);
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  padding: 0 6px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
 }
-.gauge-end.gold { left: 0; color: #fbbf24; }
-.gauge-end.brown { right: 0; color: #c99a6e; }
-.gauge-mid { left: 50%; transform: translateX(-50%); color: #566179; }
+.gauge-labels .gold { color: #fbbf24; }
+.gauge-labels .fate { color: #566179; }
+.gauge-labels .brown { color: #c99a6e; }
 
 .gauge-title {
   margin-top: 6px;

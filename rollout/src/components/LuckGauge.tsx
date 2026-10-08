@@ -17,9 +17,11 @@ function LuckGaugeBase({ stats }: { stats: SourceStats }) {
         <div className="gauge-arc" />
         <div className="gauge-needle" style={{ transform: `rotate(${angle}deg)` }} />
         <div className="gauge-hub" />
-        <span className="gauge-end gold">BLESSED</span>
-        <span className="gauge-mid">FATE</span>
-        <span className="gauge-end brown">CURSED</span>
+      </div>
+      <div className="gauge-labels">
+        <span className="gold">BLESSED</span>
+        <span className="fate">FATE</span>
+        <span className="brown">CURSED</span>
       </div>
       <div className={`gauge-title ${L === null ? "pending" : L >= 0.75 ? "blessed" : L <= -0.75 ? "cursed" : ""}`}>
         {title}
