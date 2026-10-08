@@ -143,7 +143,9 @@
 
 .stage-grid {
   position: relative;
-  z-index: 1;
+  /* above the chips row (z2) so the phone bottom-sheet — a child of this
+     grid — paints over it when open, not under it */
+  z-index: 4;
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr;
