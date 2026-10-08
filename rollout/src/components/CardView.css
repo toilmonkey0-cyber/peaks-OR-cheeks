@@ -7,6 +7,7 @@
   --tier-glow: transparent;
   position: relative;
   width: min(360px, 92vw);
+  max-width: 100%; /* narrow tablet columns (700-830px) clip without this */
   padding: 3px;
   background: linear-gradient(160deg, #4a5670 0%, #232c42 30%, #4a5670 60%, #1a2236 100%);
   clip-path: polygon(26px 0, 100% 0, 100% calc(100% - 26px), calc(100% - 26px) 100%, 0 100%, 0 26px);
