@@ -92,6 +92,11 @@ export function planScan(planSeed: string, pool: Card[]): ScanPlan {
 export function filterPool(players: Card[], groupPositions: string[] | null): Card[] {
   return groupPositions ? players.filter((c) => groupPositions.includes(c.position)) : players;
 }
+
+/** NO MIDS: drop every verdict-free rating (63–79). Pool-level, so the draw,
+ *  expected rates, gauge, and streaks all stay coherent automatically. */
+export const stripMids = (pool: Card[]): Card[] =>
+  pool.filter((c) => c.rating <= CHEEKS_MAX_RATING || c.rating >= PEAK_MIN_RATING);
 // ── verdicts ────────────────────────────────────────────────────────────────
 export type Verdict = "peak" | "cheeks" | "atomic" | null;
 

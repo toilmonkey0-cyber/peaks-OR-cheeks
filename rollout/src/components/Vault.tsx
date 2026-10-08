@@ -13,11 +13,12 @@ const SECTION_ORDER: { key: string; label: string; accepts: Verdict[] }[] = [
   { key: "cheeks", label: "CHEEKS", accepts: ["cheeks", "atomic"] },
 ];
 
-function VaultBase({ log, byId, teams, bestId, onClose }: {
+function VaultBase({ log, byId, teams, bestId, noMids, onClose }: {
   log: string[];
   byId: Record<string, Card>;
   teams: Record<string, Team>;
   bestId: string | null;
+  noMids: boolean;
   onClose: () => void;
 }) {
   // newest occurrence wins position; count duplicates
@@ -57,7 +58,7 @@ function VaultBase({ log, byId, teams, bestId, onClose }: {
               <section key={key} className={`vault-section sec-${key}`}>
                 <h3>{label}<span className="sec-count">{items.length}</span></h3>
                 {items.length === 0
-                  ? <p className="sec-none">none yet</p>
+                  ? <p className="sec-none">{noMids && key === "mids" ? "none. as designed." : "none yet"}</p>
                   : <div className="vault-grid">
                       {items.map((e) => <VaultTile key={e.card.playerId} entry={e} team={teams[e.card.team]} />)}
                     </div>}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Card, Tier } from "@/data/schema";
 import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_LINES, NEAR_MISS_MIN_RATING, ODDS, REEL_SIZE, TIER_RANK } from "./config";
-import { filterPool, nextCheekStreak, planScan, verdictOf } from "./draw";
+import { poolVerdictRates } from "./luck";
+import { filterPool, nextCheekStreak, planScan, stripMids, verdictOf } from "./draw";
 import { loadSnapshot } from "@/data/snapshot";
 
 const mk = (id: string, rating: number, position = "WR", name = id): Card => {
@@ -62,6 +63,27 @@ describe("planScan", () => {
       const plan = planScan(`st-${i}`, stPool);
       expect(TIER_RANK[plan.tier]).toBeLessThanOrEqual(maxTier);
       expect(stPool).toContain(plan.card);
+    }
+  });
+});
+
+describe("NO MIDS", () => {
+  it("strips exactly the verdict-free ratings (62 stays, 63 goes, 79 goes, 80 stays)", () => {
+    const pool = [mk("a", 62), mk("b", 63), mk("c", 79), mk("d", 80), mk("e", 55), mk("f", 91)];
+    const stripped = stripMids(pool);
+    expect(stripped.map((c) => c.playerId).sort()).toEqual(["a", "d", "e", "f"]);
+  });
+
+  it("in a stripped pool every draw is a verdict and rates renormalize honestly", () => {
+    const ps = stripMids(loadSnapshot("m26").players);
+    // every remaining player is peak or cheeks
+    expect(ps.every((c) => verdictOf(c) !== null)).toBe(true);
+    const { pPeak, pCheeks } = poolVerdictRates(ps);
+    expect(pPeak + pCheeks).toBeCloseTo(1, 6);
+    expect(pPeak).toBeCloseTo(0.095, 2);   // house peak odds survive
+    expect(pCheeks).toBeGreaterThan(0.85);  // cheeks flood
+    for (let i = 0; i < 60; i++) {
+      expect(verdictOf(planScan(`nm-${i}`, ps).card)).not.toBeNull();
     }
   });
 });

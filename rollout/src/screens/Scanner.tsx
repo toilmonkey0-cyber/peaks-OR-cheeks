@@ -4,7 +4,7 @@ import {
   ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
   STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
 } from "@/engine/config";
-import { filterPool, planScan, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
+import { filterPool, planScan, stripMids, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
@@ -57,6 +57,7 @@ export function Scanner({ save, setSave, snapshots }: {
   const [manualSheet, setManualSheet] = useState(false);
   const [sheetKind, setSheetKind] = useState<"result" | "session">("result");
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [modeFlash, setModeFlash] = useState(false);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
   const sheetOpen = (result !== null && phase === "result") || manualSheet;
@@ -101,8 +102,10 @@ export function Scanner({ save, setSave, snapshots }: {
   const stats = save.stats[source];
   const teams: Record<string, Team> = useMemo(
     () => Object.fromEntries(snapshot.teams.map((t) => [t.abbr, t])), [snapshot]);
-  const pool = useMemo(() => filterPool(snapshot.players, GROUPS[save.group] ?? null),
-    [snapshot.players, save.group]);
+  const pool = useMemo(() => {
+    const p = filterPool(snapshot.players, GROUPS[save.group] ?? null);
+    return save.noMids ? stripMids(p) : p;
+  }, [snapshot.players, save.group, save.noMids]);
   const verdictRates = useMemo(() => poolVerdictRates(pool), [pool]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
@@ -451,7 +454,7 @@ export function Scanner({ save, setSave, snapshots }: {
     </span>;
 
   return (
-    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}`}
+    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}${save.noMids ? " nomids" : ""}`}
       style={{ "--tp": team?.primary ?? "#1e293b", "--ts": team?.secondary ?? "#0f172a" } as React.CSSProperties}>
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
@@ -482,6 +485,19 @@ export function Scanner({ save, setSave, snapshots }: {
 
       {showSettings && (
         <div className="settings" role="dialog" aria-label="Settings" data-testid="settings">
+          <label className="no-mids-row">
+            <input type="checkbox" checked={save.noMids}
+              onChange={(e) => {
+                pulse(HAPTICS.ui);
+                setSave((prev) => ({ ...prev, noMids: e.target.checked }));
+                if (e.target.checked) {
+                  setModeFlash(true);
+                  synth.modeSwell();
+                  after(1500, () => setModeFlash(false));
+                }
+              }} />
+            <span className="nm-text"><b>NO MIDS</b><small>every pull is a verdict</small></span>
+          </label>
           <label><input type="checkbox" checked={save.soundOn}
             onChange={(e) => setSave((s) => ({ ...s, soundOn: e.target.checked }))} /> Sound effects</label>
           <label><input type="checkbox" checked={save.crowdOn}
@@ -514,6 +530,7 @@ export function Scanner({ save, setSave, snapshots }: {
           <div className="hero" data-testid="hero">
             <span>PEAKS</span><em>OR</em><span>CHEEKS</span>
           </div>
+          {save.noMids && <div className="nomids-badge" data-testid="nomids-badge">NO MIDS</div>}
           <div className="focus-stage">
             <div className="focus-wrap">
               <canvas ref={focusRef} className="focus" aria-label="Scan focus window" />
@@ -573,8 +590,15 @@ export function Scanner({ save, setSave, snapshots }: {
             onClick={() => { pulse(HAPTICS.ui); setSave((s) => ({ ...s, group: g })); }}>{g}</button>
         ))}
       </nav>
+      {modeFlash && (
+        <div className="mode-flash" data-testid="mode-flash" role="status">
+          <div className="mf-wash gold" /><div className="mf-wash brown" />
+          <div className="stamp">NO MIDS.</div>
+          <div className="cline">The house is not diluted.</div>
+        </div>
+      )}
       {vaultOpen && (
-        <Vault log={stats.pullLog} byId={byId} teams={teams} bestId={stats.bestId}
+        <Vault log={stats.pullLog} byId={byId} teams={teams} bestId={stats.bestId} noMids={save.noMids}
           onClose={() => { pulse(HAPTICS.ui); setVaultOpen(false); }} />
       )}
       {celebration && (

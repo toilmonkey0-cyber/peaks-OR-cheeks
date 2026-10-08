@@ -30,6 +30,7 @@ export interface SaveState {
   hapticsOn: boolean;
   crowdOn: boolean;
   group: string;
+  noMids: boolean;
 }
 
 export const freshStats = (): SourceStats =>
@@ -43,6 +44,7 @@ export const freshSave = (): SaveState => ({
   hapticsOn: true,
   crowdOn: true,
   group: "ALL",
+  noMids: false,
 });
 
 export function loadSave(): SaveState {
@@ -84,6 +86,7 @@ export function loadSave(): SaveState {
       hapticsOn: parsed.hapticsOn ?? true,
       crowdOn: parsed.crowdOn ?? true,
       group: parsed.group ?? "ALL",
+      noMids: parsed.noMids ?? false,
     };
   } catch {
     // corrupt or unavailable storage → fresh (nothing worth backing up in a generator)

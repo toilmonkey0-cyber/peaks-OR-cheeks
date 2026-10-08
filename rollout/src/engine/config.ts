@@ -77,6 +77,7 @@ export const STREAK_LINES: Record<number, string> = {
   3: "3 straight cheeks. Seek help.",
   5: "5 straight. The house is laughing.",
   7: "7 straight. Unprecedented despair.",
+  10: "10 straight. Consider gardening.",
 };
 
 export const TIER_ACCENT: Record<Tier, string> = {

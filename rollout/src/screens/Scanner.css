@@ -140,6 +140,95 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 }
 .settings label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+/* ── NO MIDS mode identity ──────────────────────────────────────────────── */
+.no-mids-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(240, 168, 48, 0.12), rgba(160, 106, 68, 0.12));
+  border-image: linear-gradient(90deg, rgba(240, 168, 48, 0.6), rgba(160, 106, 68, 0.6)) 1;
+  cursor: pointer;
+}
+.no-mids-row input { width: 16px; height: 16px; accent-color: #f0a830; }
+.no-mids-row .nm-text { display: flex; flex-direction: column; gap: 1px; }
+.no-mids-row b { font-size: 12px; font-weight: 900; letter-spacing: 0.18em; color: #f0a830; }
+.no-mids-row small { font-size: 10px; color: #7d8aa5; letter-spacing: 0.04em; }
+
+.nomids-badge {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: #0a0e1a;
+  padding: 4px 12px 4px 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f0a830 0 50%, #a06a44 50% 100%);
+  margin: 2px 0 6px;
+}
+
+.nomids .hero em {
+  text-shadow: 0 0 20px rgba(240, 168, 48, 0.85), 0 0 46px rgba(160, 106, 68, 0.5);
+}
+
+/* charge ring fills gold half, then brown half */
+.nomids .scan-btn::before {
+  background: conic-gradient(
+    #f0a830 calc(var(--charge, 0) * 180deg),
+    #a06a44 calc(var(--charge, 0) * 360deg),
+    transparent 0);
+}
+
+/* ── NO MIDS activation ritual: gold sweeps in from the left, brown from the right */
+.mode-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+  animation: celebrate-fade 0.15s ease-out;
+}
+.mf-wash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 55%;
+}
+.mf-wash.gold {
+  left: 0;
+  background: linear-gradient(90deg, rgba(240, 168, 48, 0.4), transparent);
+  animation: mf-in-left 0.5s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+.mf-wash.brown {
+  right: 0;
+  background: linear-gradient(270deg, rgba(160, 106, 68, 0.4), transparent);
+  animation: mf-in-right 0.5s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+@keyframes mf-in-left { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes mf-in-right { from { transform: translateX(100%); } to { transform: none; } }
+.mode-flash .stamp {
+  position: relative;
+  font-weight: 900;
+  font-size: clamp(44px, 9vw, 110px);
+  letter-spacing: 0.05em;
+  color: #f2f5fc;
+  text-shadow: 0 0 60px rgba(240, 168, 48, 0.5);
+  animation: stamp-in 0.4s cubic-bezier(0.2, 1.5, 0.35, 1);
+}
+.mode-flash .cline {
+  position: relative;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #c5d1e8;
+}
+
 .settings .reset {
   background: none;
   border: 1px solid #7f1d1d;
@@ -592,6 +681,9 @@
   .hero { font-size: clamp(18px, 3.4vw, 26px); margin: 0 0 2px; gap: 0.4em; }
   .hero em { font-size: 0.34em; }
   .stage { gap: 8px; }
+  .nomids-badge { font-size: 8px; padding: 2px 9px; margin: 0; }
+  .nomids .hero { margin: 0; }
+  .nomids .focus-wrap { height: min(32dvh, 185px); }
   .focus-wrap { aspect-ratio: auto; height: min(38dvh, 210px); }
   .scan-btn { width: min(30vw, 180px); min-height: 60px; }
   .scan-btn span { font-size: 19px; }

@@ -181,6 +181,14 @@ class Synth {
     this.crowdGain.gain.setTargetAtTime(0.05, t0 + ms / 1000, 0.3);
   }
 
+  /** NO MIDS activation: low swell, gold-brown mood. */
+  modeSwell(): void {
+    this.blip(98, 0.9, "sawtooth", 0.08);
+    this.blip(147, 0.9, "sawtooth", 0.07, 0.05);
+    this.blip(196, 1.1, "sine", 0.09, 0.1);
+    this.noise(0.6, 0.08, 600);
+  }
+
   /** Descending detuned saw note with end-of-phrase bend — one trombone blat. */
   private tromboneNote(freq: number, at: number, durS: number, gain: number, bend = false): void {
     if (!this.ctx || !this.master || !this.enabled) return;
