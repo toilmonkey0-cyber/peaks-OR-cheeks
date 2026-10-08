@@ -55,10 +55,12 @@ export function Scanner({ save, setSave, snapshots }: {
     useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string } | null>(null);
   const celebrationToken = useRef(0);
   const [manualSheet, setManualSheet] = useState(false);
+  const [sheetKind, setSheetKind] = useState<"result" | "session">("result");
   const [vaultOpen, setVaultOpen] = useState(false);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
   const sheetOpen = (result !== null && phase === "result") || manualSheet;
+  const showGauge = sheetKind === "session";
 
   const planRef = useRef<ScanPlan | null>(null);
   const timers = useRef<number[]>([]);
@@ -104,7 +106,6 @@ export function Scanner({ save, setSave, snapshots }: {
   const verdictRates = useMemo(() => poolVerdictRates(pool), [pool]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
-  const best = stats.bestId ? byId[stats.bestId] : null;
   const ticks = useMemo(() => ticksFromLog(stats.pullLog, byId), [stats.pullLog, byId]);
 
   const shownTeam = result ?? (planRef.current?.card ?? null);
@@ -364,6 +365,7 @@ export function Scanner({ save, setSave, snapshots }: {
       if (card.xfactor) after(260, () => pulse(HAPTICS.xfactor));
       setResult(card);
       setPhase("result");
+      setSheetKind("result");
 
       const verdict = verdictOf(card);
       const priorStreak = save.stats[save.source].cheekStreak;
@@ -386,6 +388,7 @@ export function Scanner({ save, setSave, snapshots }: {
             ? STREAK_LINES[streak]
             : priorStreak >= 3 ? "Streak broken. Redemption." : undefined;
           const token = ++celebrationToken.current;
+          setSheetKind("result");
           setCelebration({ kind: verdict, line, streakLine });
           synth.celebrate(verdict);
           pulse(HAPTICS[verdict === "peak" ? "peakJoy" : verdict]);
@@ -452,7 +455,7 @@ export function Scanner({ save, setSave, snapshots }: {
       style={{ "--tp": team?.primary ?? "#1e293b", "--ts": team?.secondary ?? "#0f172a" } as React.CSSProperties}>
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
-        <span className="brand">PEAKS<em>OR</em>CHEEKS</span>
+        <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
         <div className="source-toggle" role="tablist" aria-label="Ratings source" data-testid="source-toggle">
           {SOURCES.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={source === s}
@@ -461,18 +464,19 @@ export function Scanner({ save, setSave, snapshots }: {
               onClick={() => switchSource(s)}>{sourceLabel(s, snapshots[s])}</button>
           ))}
         </div>
-        {best && <span className="best-chip" data-testid="best-chip">
-          BEST {best.rating} · {best.name}</span>}
-        <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
       </header>
       <div className={`scoreline tappable${sheetOpen ? " active" : ""}`} data-testid="scoreline"
-        onClick={() => { pulse(HAPTICS.ui); setManualSheet((s) => !s); }}>
+        onClick={() => { pulse(HAPTICS.ui); setSheetKind("session"); setManualSheet((s) => !s); }}>
         <b className="gold">{stats.peaks} {stats.peaks === 1 ? "peak" : "peaks"}</b>
         <span className="sep">·</span>
         <b className="brown">{stats.cheeks} {stats.cheeks === 1 ? "cheek" : "cheeks"}</b>
         {stats.cheekStreak >= 2 && <>
           <span className="sep">·</span>
           <b className="streak">streak {stats.cheekStreak}</b>
+        </>}
+        {stats.bestRating >= 0 && <>
+          <span className="sep">·</span>
+          <b className="gold">best {stats.bestRating}</b>
         </>}
       </div>
 
@@ -492,6 +496,9 @@ export function Scanner({ save, setSave, snapshots }: {
 
       <main className="stage-grid">
         <section className="stage">
+          <div className="hero" data-testid="hero">
+            <span>PEAKS</span><em>OR</em><span>CHEEKS</span>
+          </div>
           <div className="focus-stage">
             <div className="focus-wrap">
               <canvas ref={focusRef} className="focus" aria-label="Scan focus window" />
@@ -518,8 +525,8 @@ export function Scanner({ save, setSave, snapshots }: {
           </button>
         </section>
 
-        <section className={`side${sheetOpen ? " open" : ""}`}>
-          <LuckGauge stats={stats} />
+        <section className={`side${sheetOpen ? " open" : ""}`} data-kind={showGauge ? "session" : "result"}>
+          {showGauge && <LuckGauge stats={stats} />}
           {result ? (
             <div className={celebration && celebration.kind !== "peak" ? "result-col droop" : "result-col"}>
               <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />

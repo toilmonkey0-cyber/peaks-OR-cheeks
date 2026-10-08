@@ -33,9 +33,9 @@
   z-index: 2;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 6px 4px 12px;
-  flex-wrap: wrap;
+  padding: 4px 4px 6px;
 }
 .source-toggle {
   display: flex;
@@ -57,21 +57,30 @@
 }
 .source-toggle button.on { background: #38bdf8; color: #06111f; }
 .source-toggle button:disabled { opacity: 0.5; cursor: default; }
-.topbar .brand {
+/* the hero lives in the stage now — the topbar is slim chrome */
+.hero {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55em;
+  font-size: clamp(26px, 7vw, 44px);
   font-weight: 900;
-  letter-spacing: 0.16em;
-  font-size: 14px;
+  letter-spacing: 0.13em;
   color: var(--ink);
-  white-space: nowrap;
+  line-height: 1;
+  margin: 6px 0 2px;
+  transition: opacity 0.45s ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.topbar .brand em {
+.hero em {
   font-style: normal;
-  font-size: 9px;
+  font-size: 0.38em;
   color: #f0a830;
-  letter-spacing: 0.22em;
-  padding: 0 0.45em;
-  vertical-align: 2px;
+  letter-spacing: 0.3em;
+  transform: translateY(-0.35em);
 }
+.phase-scanning .hero { opacity: 0.1; }
+.phase-result .hero { opacity: 0.28; }
 .topbar .pulls { font-size: 12px; color: #9aa8c4; font-variant-numeric: tabular-nums; }
 .best-chip {
   margin-left: auto;
