@@ -12,7 +12,8 @@ function LuckGaugeBase({ stats }: { stats: SourceStats }) {
   const angle = L === null ? 0 : -(L / 3) * 78;
   const owed = (v: number) => Math.round(v * 10) / 10;
   return (
-    <div className="luck-gauge" data-testid="luck-gauge" data-luck={L ?? "pending"}>
+    <div className="luck-gauge" data-testid="luck-gauge" data-luck={L ?? "pending"}
+      title={`peaks ${stats.peaks} (fate owed ${owed(stats.peaksExp)}) · cheeks ${stats.cheeks} (fate owed ${owed(stats.cheeksExp)})`}>
       <div className="gauge-dial">
         <div className="gauge-arc" />
         <div className="gauge-needle" style={{ transform: `rotate(${angle}deg)` }} />
@@ -25,9 +26,6 @@ function LuckGaugeBase({ stats }: { stats: SourceStats }) {
       </div>
       <div className={`gauge-title ${L === null ? "pending" : L >= 0.75 ? "blessed" : L <= -0.75 ? "cursed" : ""}`}>
         {title}
-      </div>
-      <div className="gauge-fine">
-        peaks {stats.peaks} / owed {owed(stats.peaksExp)} · cheeks {stats.cheeks} / owed {owed(stats.cheeksExp)}
       </div>
     </div>
   );

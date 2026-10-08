@@ -461,7 +461,6 @@ export function Scanner({ save, setSave, snapshots }: {
               onClick={() => switchSource(s)}>{sourceLabel(s, snapshots[s])}</button>
           ))}
         </div>
-        <span className="pulls" data-testid="pulls">{stats.pulls} {stats.pulls === 1 ? "scan" : "scans"}</span>
         {best && <span className="best-chip" data-testid="best-chip">
           BEST {best.rating} · {best.name}</span>}
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
@@ -539,7 +538,7 @@ export function Scanner({ save, setSave, snapshots }: {
               <p className="sub">One button decides. Position, team, name, rating — real players, real ratings, zero mercy.</p>
             </div>
           )}
-          <LuckStrip ticks={ticks} onOpen={() => { pulse(HAPTICS.ui); setVaultOpen(true); }} />
+          <LuckStrip ticks={ticks} pullCount={stats.pulls} onOpen={() => { pulse(HAPTICS.ui); setVaultOpen(true); }} />
         </section>
       </main>
 

@@ -24,7 +24,7 @@ export function tickStyle(t: Tick): { className: string; style: React.CSSPropert
   return { className: "tick mid", style: {} };
 }
 
-function LuckStripBase({ ticks, onOpen }: { ticks: Tick[]; onOpen: () => void }) {
+function LuckStripBase({ ticks, pullCount, onOpen }: { ticks: Tick[]; pullCount: number; onOpen: () => void }) {
   return (
     <div className="luck-strip" data-testid="luck-strip">
       <div className="strip-track">
@@ -37,7 +37,7 @@ function LuckStripBase({ ticks, onOpen }: { ticks: Tick[]; onOpen: () => void })
       </div>
       <button className="vault-btn" data-testid="vault-btn" onClick={onOpen} aria-label="Open the vault">
         <FootballMark />
-        <span className="vault-count">{ticks.length}</span>
+        <span className="vault-count">{pullCount}</span>
       </button>
     </div>
   );
