@@ -8,7 +8,7 @@ import { filterPool, planScan, verdictOf, type ScanPlan, type Verdict } from "@/
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
-import { recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
+import { freshStats, recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
 import { sourceLabel } from "@/data/snapshot";
 import { poolVerdictRates } from "@/engine/luck";
 import { copyText } from "@/util/clipboard";
@@ -488,9 +488,24 @@ export function Scanner({ save, setSave, snapshots }: {
             onChange={(e) => setSave((s) => ({ ...s, crowdOn: e.target.checked }))} /> Crowd ambience</label>
           <label><input type="checkbox" checked={save.hapticsOn}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
-          <button className="reset" onClick={() => setSave((s) => ({
-            ...s, stats: { ...s.stats, [s.source]: { pulls: 0, bestId: null, bestRating: -1, pullLog: [], cheekStreak: 0, peaks: 0, cheeks: 0, peaksExp: 0, cheeksExp: 0, varP: 0, varC: 0 } },
-          }))}>Reset session</button>
+          <button className="reset" onClick={() => {
+            // pull the power cord: wipe both sources' stats and every piece of
+            // scanner/UI state so the app restarts brand new (device prefs stay)
+            pulse(HAPTICS.ui);
+            clearTimers();
+            celebrationToken.current++;
+            planRef.current = null;
+            setResult(null);
+            setNearFlash(null);
+            setCelebration(null);
+            setOvrDisplay(0);
+            setLocked({ pos: false, team: false, name: false, ovr: false });
+            setPhase("idle");
+            setManualSheet(false);
+            setVaultOpen(false);
+            setShowSettings(false);
+            setSave((s) => ({ ...s, stats: { m26: freshStats(), m27: freshStats() } }));
+          }}>Reset everything</button>
         </div>
       )}
 
