@@ -134,6 +134,13 @@ export function Scanner({ save, setSave, snapshots }: {
 
   // ── canvas backing stores: match display size (DPR-aware) or text blurs ──
   useEffect(() => {
+    const c = focusRef.current;
+    if (!c) return;
+    const onLost = (e: Event) => e.preventDefault(); // allow restore; the loop self-heals
+    c.addEventListener("contextlost", onLost);
+    return () => c.removeEventListener("contextlost", onLost);
+  }, []);
+  useEffect(() => {
     const fit = (c: HTMLCanvasElement | null) => {
       if (!c) return;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -220,7 +227,9 @@ export function Scanner({ save, setSave, snapshots }: {
     };
 
     const frame = (now: number) => {
-      const t = now - start;
+      // rAF timestamps are frame times and can predate the effect-mount
+      // performance.now() by a frame — clamp or the first frame indexes reel[-1]
+      const t = Math.max(0, now - start);
       const plan = planRef.current;
       const c2 = ctx2d(canvas);
       if (c2) {
@@ -246,10 +255,13 @@ export function Scanner({ save, setSave, snapshots }: {
           ctx.fillStyle = grad;
           ctx.fillRect(sweep - 90, 0, 180, height);
           }
+          // idle/result repaint forever: the sweep drifts, and this survives
+          // canvas resets from phase-transition resizes
+          raf = requestAnimationFrame(frame);
         } else {
           const p = Math.min(1, t / plan.delays.name);
           if (!reduceMotion) {
-            const idx = Math.floor(easeOutQuart(p) * (plan.reel.length - 1));
+            const idx = Math.max(0, Math.floor(easeOutQuart(p) * (plan.reel.length - 1)));
             const entry = plan.reel[Math.min(idx, plan.reel.length - 1)];
             drawName(c2, entry.name, 1 - easeOutQuart(p), "#e8edf7");
           } else if (p >= 1) {
@@ -353,7 +365,7 @@ export function Scanner({ save, setSave, snapshots }: {
       rollupNotes(5, Math.min(120, delays.ovr / 6)).forEach((ms, i) =>
         after(delays.ovr * 0.1 + ms, () => synth.rollupNote(i)));
       const tween = (now: number) => {
-        const k = Math.min(1, (now - t0) / delays.ovr);
+        const k = Math.max(0, Math.min(1, (now - t0) / delays.ovr));
         setOvrDisplay(Math.round(easeOutQuart(k) * card.rating));
         if (k < 1) rafs.current.push(requestAnimationFrame(tween));
       };
