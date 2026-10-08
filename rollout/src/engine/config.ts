@@ -47,7 +47,7 @@ export const ATOMIC_CHEEKS_MAX_RATING = 58;
 
 // The judgment beat: silence between the OVR lock and the celebration.
 export const VERDICT_BEAT_MS = 400;
-export const CELEBRATION_MS = { peak: 1600, cheeks: 1800, atomic: 2300 } as const;
+export const CELEBRATION_MS = { peak: 2100, cheeks: 2400, atomic: 2900 } as const;
 
 // PG-13, deadpan-forward; "He is ass." stays in the pool so it lands ~1 in 8.
 export const CHEEKS_LINES = [
