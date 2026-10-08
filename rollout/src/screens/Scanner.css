@@ -589,6 +589,9 @@
 @media (max-height: 520px) {
   .topbar { padding-bottom: 4px; gap: 8px; }
   .scoreline { padding: 0 4px 4px; }
+  .hero { font-size: clamp(18px, 3.4vw, 26px); margin: 0 0 2px; gap: 0.4em; }
+  .hero em { font-size: 0.34em; }
+  .stage { gap: 8px; }
   .focus-wrap { aspect-ratio: auto; height: min(38dvh, 210px); }
   .scan-btn { width: min(30vw, 180px); min-height: 60px; }
   .scan-btn span { font-size: 19px; }
