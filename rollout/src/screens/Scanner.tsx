@@ -4,7 +4,10 @@ import {
   ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
   STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
 } from "@/engine/config";
-import { filterPool, planScan, stripMids, verdictOf, verdictViable, type ScanPlan, type Verdict } from "@/engine/draw";
+import { applyPoolFilters, filterPool, planScan, poolBadgeLabel, verdictOf, verdictViable, type PoolFilters, type ScanPlan, type Verdict } from "@/engine/draw";
+import { dealFromTheHouse, type VoidEntry } from "@/engine/void";
+import { loadVoidCollection, writeVoidCollection } from "@/engine/voidstore";
+import { VoidCard } from "@/components/VoidCard";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
@@ -72,6 +75,9 @@ export function Scanner({ save, setSave, snapshots }: {
   const [hlSpin, setHlSpin] = useState(false);
   const [hlReveal, setHlReveal] = useState<{ next: Card; stat: string; nextValue: number; currentValue: number; outcome: "correct" | "wrong" | "push" } | null>(null);
   const [hlOver, setHlOver] = useState<{ streak: number; best: number } | null>(null);
+  const [voidStep, setVoidStep] = useState<null | "tear" | "black" | "excluded" | "pity" | "deal">(null);
+  const [voidEntry, setVoidEntry] = useState<VoidEntry | null>(null);
+  const [voidCollection, setVoidCollection] = useState<VoidEntry[]>(loadVoidCollection);
   const weatherRef = useRef<HTMLCanvasElement>(null);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
@@ -122,8 +128,9 @@ export function Scanner({ save, setSave, snapshots }: {
   const basePool = useMemo(() => filterPool(snapshot.players, GROUPS[save.group] ?? null),
     [snapshot.players, save.group]);
   const midsViable = useMemo(() => verdictViable(basePool), [basePool]);
-  const pool = useMemo(() => (save.noMids && midsViable ? stripMids(basePool) : basePool),
-    [basePool, save.noMids, midsViable]);
+  const filters: PoolFilters = { noMids: save.noMids, noPeaks: save.noPeaks, noCheeks: save.noCheeks };
+  const pool = useMemo(() => applyPoolFilters(basePool, filters), [basePool, save.noMids, save.noPeaks, save.noCheeks]);
+  const badgeLabel = poolBadgeLabel(filters);
   const verdictRates = useMemo(() => poolVerdictRates(pool), [pool]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
@@ -516,6 +523,29 @@ export function Scanner({ save, setSave, snapshots }: {
     // flush a pending duel turn so rapid firing can't double-pull one player;
     // the flushed turn MUST flow downstream via this local (state updates
     // don't affect this closure's captured `duel`)
+    if (pool.length === 0) {
+      // all three filters: the pool is empty — the house deals from its own
+      chargingRef.current = false;
+      synth.kick();
+      pulse(HAPTICS.kick);
+      synth.voidGlitch();
+      pulse(HAPTICS.void);
+      setVoidStep("tear");
+      const timers2: [number, () => void][] = [
+        [650, () => setVoidStep("black")],
+        [1350, () => { setVoidStep("excluded"); synth.voidDeal(); }],
+        [2150, () => setVoidStep("pity")],
+        [2950, () => {
+          const entry = dealFromTheHouse(`v-${Date.now().toString(36)}`, voidCollection.map((e) => e.id), snapshot.teams);
+          setVoidEntry(entry);
+          setVoidCollection((prev) => { const next = [...prev, entry]; writeVoidCollection(next); return next; });
+          setSave((prev) => ({ ...prev, stats: { ...prev.stats, [prev.source]: { ...prev.stats[prev.source], pulls: prev.stats[prev.source].pulls + 1 } } }));
+          setVoidStep("deal");
+        }],
+      ];
+      for (const [ms, fn] of timers2) window.setTimeout(fn, ms);
+      return;
+    }
     let duelNow = duel;
     if (duelNow && duelPendingAdvance.current) {
       duelPendingAdvance.current = false;
@@ -788,19 +818,25 @@ export function Scanner({ save, setSave, snapshots }: {
           {duel && (
             <button className="reset" onClick={() => { pulse(HAPTICS.ui); duelPendingAdvance.current = false; setDuel(null); }}>Abandon duel</button>
           )}
-          <label className="no-mids-row">
-            <input type="checkbox" checked={save.noMids} disabled={!!duel}
-              onChange={(e) => {
-                pulse(HAPTICS.ui);
-                setSave((prev) => ({ ...prev, noMids: e.target.checked }));
-                if (e.target.checked) {
-                  setModeFlash(true);
-                  synth.modeSwell();
-                  after(1500, () => setModeFlash(false));
-                }
-              }} />
-            <span className="nm-text"><b>NO MIDS</b><small>every pull is a verdict</small></span>
-          </label>
+          <div className="pool-filters">
+            {([["noMids", "NO MIDS", "every pull is a verdict"],
+               ["noPeaks", "NO PEAKS", "no 80+ pulls, ever"],
+               ["noCheeks", "NO CHEEKS", "ban the sub-62 scrubs"]] as const).map(([key, label, blurb]) => (
+              <label className="no-mids-row" key={key}>
+                <input type="checkbox" checked={save[key]} disabled={!!duel}
+                  onChange={(e) => {
+                    pulse(HAPTICS.ui);
+                    setSave((prev) => ({ ...prev, [key]: e.target.checked }));
+                    if (e.target.checked && key === "noMids" && !save.noPeaks && !save.noCheeks) {
+                      setModeFlash(true);
+                      synth.modeSwell();
+                      after(1500, () => setModeFlash(false));
+                    }
+                  }} />
+                <span className="nm-text"><b>{label}</b><small>{blurb}</small></span>
+              </label>
+            ))}
+          </div>
           <label><input type="checkbox" checked={save.soundOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, soundOn: e.target.checked }))} /> Sound effects</label>
           <label><input type="checkbox" checked={save.crowdOn} disabled={!!duel}
@@ -841,10 +877,11 @@ export function Scanner({ save, setSave, snapshots }: {
           <div className="hero" data-testid="hero">
             <span>PEAKS</span><em>OR</em><span>CHEEKS</span>
           </div>
-          {save.noMids && (
-            <div className={`nomids-badge${midsViable ? "" : " thin"}`} data-testid="nomids-badge"
-              title={midsViable ? undefined : "This group's pool is too thin for verdict-only pulls — mids stay in."}>
-              NO MIDS{midsViable ? "" : " · THIN POOL"}
+          {badgeLabel && (
+            <div className={`nomids-badge${save.noMids && !save.noPeaks && !save.noCheeks && !midsViable ? " thin" : ""}${badgeLabel === "VOID" ? " voidy" : ""}`}
+              data-testid="nomids-badge"
+              title={save.noMids && !save.noPeaks && !save.noCheeks && !midsViable ? "This group's pool is too thin for verdict-only pulls — mids stay in." : undefined}>
+              {badgeLabel}
             </div>
           )}
           {hl && !hlOver && (
@@ -994,6 +1031,26 @@ export function Scanner({ save, setSave, snapshots }: {
           </div>
         );
       })()}
+      {voidStep && (
+        <div className={`void-stage ${voidStep === "tear" ? "void-tear" : voidStep === "black" ? "void-black" : ""}`}
+          data-testid="void-stage" role="status" onClick={() => { if (voidStep === "deal") { setVoidStep(null); setPhase("idle"); } }}>
+          {(voidStep === "excluded" || voidStep === "pity" || voidStep === "deal") && (
+            voidStep === "deal" && voidEntry ? (
+              <>
+                <VoidCard entry={voidEntry} team={voidEntry.kind === "mascot" ? teams[voidEntry.id] : undefined} />
+                <div className="void-msg small" style={{ animation: "celebrate-fade .3s ease-out" }}>IT SHOULD NOT EXIST.</div>
+                <div className="void-msg small" style={{ animation: "celebrate-fade .3s ease-out .15s both" }}>
+                  KEPT IN THE HOUSE'S COLLECTION · {voidCollection.length}/32 · tap to return
+                </div>
+              </>
+            ) : voidStep === "excluded" ? (
+              <div className="void-msg">YOU EXCLUDED EVERYONE.</div>
+            ) : (
+              <div className="void-msg small">The house took pity.</div>
+            )
+          )}
+        </div>
+      )}
       {modeFlash && (
         <div className="mode-flash" data-testid="mode-flash" role="status">
           <div className="mf-wash gold" /><div className="mf-wash brown" />
@@ -1003,7 +1060,7 @@ export function Scanner({ save, setSave, snapshots }: {
       )}
       {vaultOpen && (
         <Vault log={stats.pullLog} byId={byId} teams={teams} bestId={stats.bestId} noMids={save.noMids}
-          onClose={() => { pulse(HAPTICS.ui); setVaultOpen(false); }} />
+          voidEntries={voidCollection} onClose={() => { pulse(HAPTICS.ui); setVaultOpen(false); }} />
       )}
       {celebration && (
         <div className={`celebrate kind-${celebration.kind}`} data-testid="celebration"

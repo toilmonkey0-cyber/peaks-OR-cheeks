@@ -133,6 +133,35 @@ export function verdictViable(pool: Card[]): boolean {
   return cheeks >= MIN_VERDICT_POOL && peaks >= MIN_VERDICT_POOL;
 }
 
+/** Combined pool filters. NO MIDS alone is gated by viability (accidental
+ *  thinness); explicit noPeaks/noCheeks requests are honored as asked. */
+export interface PoolFilters { noMids: boolean; noPeaks: boolean; noCheeks: boolean }
+
+export function applyPoolFilters(pool: Card[], f: PoolFilters): Card[] {
+  let p = pool;
+  if (f.noMids && f.noPeaks && f.noCheeks) return [];
+  if (f.noMids && verdictViable(pool) && !f.noPeaks && !f.noCheeks) return stripMids(pool);
+  if (f.noMids) p = p.filter((c) => c.rating <= CHEEKS_MAX_RATING || c.rating >= PEAK_MIN_RATING);
+  if (f.noPeaks) p = p.filter((c) => c.rating < PEAK_MIN_RATING);
+  if (f.noCheeks) p = p.filter((c) => c.rating > CHEEKS_MAX_RATING);
+  return p;
+}
+
+/** Stage badge truth: one filter names it; two name what remains; three = the void. */
+export function poolBadgeLabel(f: PoolFilters): string | null {
+  const n = Number(f.noMids) + Number(f.noPeaks) + Number(f.noCheeks);
+  if (n === 0) return null;
+  if (n === 3) return "VOID";
+  if (n === 2) {
+    if (!f.noPeaks) return "PEAKS ONLY";
+    if (!f.noCheeks) return "MIDS ONLY";
+    return "CHEEKS ONLY";
+  }
+  if (f.noMids) return "NO MIDS";
+  if (f.noPeaks) return "NO PEAKS";
+  return "NO CHEEKS";
+}
+
 export const stripMids = (pool: Card[]): Card[] =>
   pool.filter((c) => c.rating <= CHEEKS_MAX_RATING || c.rating >= PEAK_MIN_RATING);
 // ── verdicts ────────────────────────────────────────────────────────────────

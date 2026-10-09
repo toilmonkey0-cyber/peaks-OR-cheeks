@@ -3,6 +3,8 @@ import type { Card, Team } from "@/data/schema";
 import { verdictOf, type Verdict } from "@/engine/draw";
 import { liftColor } from "@/util/color";
 import { FootballMark } from "./LuckStrip";
+import { MASCOTS, type VoidEntry } from "@/engine/void";
+import { VoidCard } from "./VoidCard";
 import "./Vault.css";
 
 interface Entry { card: Card; verdict: Verdict; pulls: number }
@@ -13,12 +15,13 @@ const SECTION_ORDER: { key: string; label: string; accepts: Verdict[] }[] = [
   { key: "cheeks", label: "CHEEKS", accepts: ["cheeks", "atomic"] },
 ];
 
-function VaultBase({ log, byId, teams, bestId, noMids, onClose }: {
+function VaultBase({ log, byId, teams, bestId, noMids, voidEntries, onClose }: {
   log: string[];
   byId: Record<string, Card>;
   teams: Record<string, Team>;
   bestId: string | null;
   noMids: boolean;
+  voidEntries: VoidEntry[];
   onClose: () => void;
 }) {
   // newest occurrence wins position; count duplicates
@@ -47,6 +50,24 @@ function VaultBase({ log, byId, teams, bestId, noMids, onClose }: {
 
         <div className="vault-scroll">
           {best && <BestShelf card={best} team={teams[best.team]} />}
+          <section className="vault-section sec-void">
+            <h3>THE HOUSE'S COLLECTION<span className="sec-count">{voidEntries.filter((e) => e.kind === "mascot").length}/32 · {voidEntries.filter((e) => e.kind === "ghost").length} manifestations</span></h3>
+            {voidEntries.length === 0 ? (
+              <p className="sec-none">some rooms stay locked until you exclude everything</p>
+            ) : (
+              <div className="void-grid">
+                {Object.keys(MASCOTS).map((abbr) => {
+                  const found = voidEntries.find((e) => e.kind === "mascot" && e.id === abbr);
+                  return found
+                    ? <VoidCard key={abbr} entry={found} team={teams[abbr]} small />
+                    : <div key={abbr} className="void-slot-empty" title="not yet found">?</div>;
+                })}
+                {voidEntries.filter((e) => e.kind === "ghost").slice(-3).map((g) => (
+                  <VoidCard key={g.id + g.foundAt} entry={g} small />
+                ))}
+              </div>
+            )}
+          </section>
           {entries.length === 0 && (
             <p className="vault-empty">Empty. The house respects restraint — but the button is right there.</p>
           )}

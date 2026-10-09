@@ -31,6 +31,8 @@ export interface SaveState {
   crowdOn: boolean;
   group: string;
   noMids: boolean;
+  noPeaks: boolean;
+  noCheeks: boolean;
 }
 
 export const freshStats = (): SourceStats =>
@@ -45,6 +47,8 @@ export const freshSave = (): SaveState => ({
   crowdOn: true,
   group: "ALL",
   noMids: false,
+  noPeaks: false,
+  noCheeks: false,
 });
 
 export function loadSave(): SaveState {
@@ -87,6 +91,8 @@ export function loadSave(): SaveState {
       crowdOn: parsed.crowdOn ?? true,
       group: parsed.group ?? "ALL",
       noMids: parsed.noMids ?? false,
+      noPeaks: parsed.noPeaks ?? false,
+      noCheeks: parsed.noCheeks ?? false,
     };
   } catch {
     // corrupt or unavailable storage → fresh (nothing worth backing up in a generator)

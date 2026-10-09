@@ -187,6 +187,19 @@ class Synth {
     this.noise(0.05, 0.12, 1800);
   }
 
+  /** The Void: reality tearing, then the house deals. */
+  voidGlitch(): void {
+    this.blip(880, 0.12, "sawtooth", 0.12);
+    this.blip(233, 0.18, "square", 0.1, 0.04);
+    this.blip(1244, 0.09, "sawtooth", 0.1, 0.12);
+    this.noise(0.4, 0.14, 3000);
+  }
+  voidDeal(): void {
+    this.blip(65.4, 1.4, "sine", 0.26);
+    [164.8, 196, 233.1, 311.1].forEach((f, i) => this.blip(f, 1.3, "sine", 0.08, i * 0.06));
+    this.noise(0.8, 0.06, 500);
+  }
+
   /** Duel open: gold blip, then brown. */
   duelStart(): void {
     this.blip(659.3, 0.18, "triangle", 0.16);
