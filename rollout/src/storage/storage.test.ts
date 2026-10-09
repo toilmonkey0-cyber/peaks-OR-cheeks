@@ -7,7 +7,7 @@ const card = (id: string, rating: number): Card => ({
   playerId: id, name: id, fullName: id, position: "WR", team: "KC", jersey: 1, age: 25,
   heightIn: 74, weightLb: 200, college: "", yearsPro: 3, rating,
   tier: rating >= 90 ? "legend" : rating >= 80 ? "elite" : rating >= 70 ? "rare" : "common",
-  attributes: [], xfactor: false, abilities: [], avatarSeed: id,
+  attributes: [], coreStats: { SPD: 80, ACC: 80, AGI: 80, STR: 80, JMP: 80, AWR: 80 }, xfactor: false, abilities: [], avatarSeed: id,
 });
 
 beforeEach(() => localStorage.clear());

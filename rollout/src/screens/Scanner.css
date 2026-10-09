@@ -473,6 +473,35 @@
   100% { transform: none; }
 }
 
+/* ── HIGHER / LOWER ───────────────────────────────────────────────────────── */
+.hl-btns {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 440px;
+}
+.hl-btn {
+  flex: 1;
+  min-height: 64px;
+  border: 1px solid #263352;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #16203a, #0d1425);
+  color: #e8edf7;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hl-btn.hi { border-color: rgba(240, 168, 48, 0.55); }
+.hl-btn.lo { border-color: rgba(160, 106, 68, 0.65); }
+.hl-btn:disabled { opacity: 0.45; cursor: default; }
+.hl-btn:not(:disabled):active { transform: scale(0.97); }
+.hlmode .scan-btn, .hlmode .lock-row { display: none; }
+.duel-overlay.finale.whl .duel-wash {
+  background: radial-gradient(70% 60% at 50% 42%, rgba(160, 106, 68, 0.32), rgba(10, 14, 26, 0.6) 76%);
+}
+
 /* ── Luck Duel ────────────────────────────────────────────────────────────── */
 .duel-row {
   display: flex;
@@ -494,7 +523,6 @@
 .duel-chip {
   position: relative;
   z-index: 2;
-  align-self: center;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.16em;

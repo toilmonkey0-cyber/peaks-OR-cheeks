@@ -21,6 +21,7 @@ export const CardSchema = z.object({
   rating: z.number().int().min(40).max(99),
   tier: TierSchema,
   attributes: z.array(AttributeSchema).max(6),
+  coreStats: z.record(z.string().regex(/^[A-Z]{3}$/), z.number().int().min(0).max(99)),
   xfactor: z.boolean(),
   abilities: z.array(z.string()).max(2),
   avatarSeed: z.string(),

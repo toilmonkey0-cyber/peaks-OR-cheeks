@@ -7,7 +7,7 @@ import { CardView } from "./CardView";
 const card = (over: Partial<Card> = {}): Card => ({
   playerId: "ea-1", name: "T. Hill", fullName: "Tyreek Hill", position: "WR", team: "MIA",
   jersey: 10, age: 32, heightIn: 70, weightLb: 185, college: "West Alabama", yearsPro: 10,
-  rating: 91, tier: "legend", attributes: [{ label: "SPD", value: 97 }, { label: "ACC", value: 96 }],
+  rating: 91, tier: "legend", attributes: [{ label: "SPD", value: 97 }, { label: "ACC", value: 96 }], coreStats: { SPD: 80, ACC: 80, AGI: 80, STR: 80, JMP: 80, AWR: 80 },
   xfactor: true, abilities: ["Double Me"], avatarSeed: "ea-1", ...over,
 });
 

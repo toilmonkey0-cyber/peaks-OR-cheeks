@@ -27,6 +27,8 @@ from config import (HTTP_TIMEOUT_S, MADDEN_ITERATION, MADDEN_NAMESPACE,
                     MADDEN_POSITION_CANDIDATES, MADDEN_TEAMS, TIER_THRESHOLDS)
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+# universal athletic core — every player has these; powers HIGHER/LOWER
+CORE_STATS = {"SPD", "ACC", "AGI", "STR", "JMP", "AWR"}
 SNAPSHOT_PATH = os.path.join(DATA_DIR, "snapshot.json")
 PAGE = 100
 SLEEP_S = 0.4
@@ -236,6 +238,12 @@ def assemble(by_id: dict[int, dict], source_iteration: str, out_path: str) -> No
         labels = xf + [a["label"] for a in abilities if (a.get("type") or {}).get("id") != "xFactor"]
         first, last = it.get("firstName") or "", it.get("lastName") or ""
         rating = int(it.get("overallRating") or 0)
+        core = {}
+        for key, label in STAT_LABELS.items():
+            if label in CORE_STATS:
+                v = (it.get("stats") or {}).get(key)
+                if isinstance(v, dict) and isinstance(v.get("value"), (int, float)):
+                    core[label] = int(v["value"])
         card = {
             "playerId": f"ea-{ea_id}",
             "name": f"{first[:1]}. {last}" if last else first,
@@ -251,6 +259,7 @@ def assemble(by_id: dict[int, dict], source_iteration: str, out_path: str) -> No
             "rating": rating,
             "tier": tier_of(rating),
             "attributes": top_attributes(it.get("stats") or {}),
+            "coreStats": core,
             "xfactor": bool(xf),
             "abilities": labels[:2],
             "avatarSeed": f"ea-{ea_id}",

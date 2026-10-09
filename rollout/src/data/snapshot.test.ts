@@ -22,6 +22,12 @@ describe("madden snapshots (both sources)", () => {
       expect([...snap.xfactorIds].sort()).toEqual(flagged);
       expect(flagged.length).toBeGreaterThan(0);
       for (const p of snap.players) {
+        const coreKeys = Object.keys(p.coreStats);
+        expect(coreKeys.length).toBeGreaterThanOrEqual(6);
+        for (const v of Object.values(p.coreStats)) {
+          expect(v).toBeGreaterThanOrEqual(0);
+          expect(v).toBeLessThanOrEqual(99);
+        }
         for (const a of p.attributes) {
           expect(a.label).toMatch(/^[A-Z]{2,4}$/);
           expect(a.value).toBeGreaterThanOrEqual(0);

@@ -10,7 +10,7 @@ const mk = (id: string, rating: number, position = "WR", name = id): Card => {
   return {
     playerId: id, name, fullName: `Full ${id}`, position, team: "KC", jersey: 1, age: 25,
     heightIn: 74, weightLb: 200, college: "Test U", yearsPro: 3, rating, tier,
-    attributes: [{ label: "SPD", value: 90 }], xfactor: false, abilities: [], avatarSeed: id,
+    attributes: [{ label: "SPD", value: 90 }], coreStats: { SPD: 80, ACC: 80, AGI: 80, STR: 80, JMP: 80, AWR: 80 }, xfactor: false, abilities: [], avatarSeed: id,
   };
 };
 

@@ -13,6 +13,7 @@ import { sourceLabel } from "@/data/snapshot";
 import { poolVerdictRates } from "@/engine/luck";
 import { advanceDuel, duelVerdict, DUEL_PULLS, recordDuelPull, startDuel, type DuelState } from "@/engine/duel";
 import { weatherOf } from "@/engine/weather";
+import { callHL, startHL, type HLState, type Call } from "@/engine/highlow";
 import { copyText } from "@/util/clipboard";
 import { CardView } from "@/components/CardView";
 import { LuckGauge } from "@/components/LuckGauge";
@@ -66,6 +67,11 @@ export function Scanner({ save, setSave, snapshots }: {
     (window as Window & { __duelDebug?: DuelState | null }).__duelDebug = duel;
   }, [duel]);
   const [duelIntro, setDuelIntro] = useState(false);
+  const [hl, setHl] = useState<HLState | null>(null);
+  const [hlIntro, setHlIntro] = useState(false);
+  const [hlSpin, setHlSpin] = useState(false);
+  const [hlReveal, setHlReveal] = useState<{ next: Card; stat: string; nextValue: number; currentValue: number; outcome: "correct" | "wrong" | "push" } | null>(null);
+  const [hlOver, setHlOver] = useState<{ streak: number; best: number } | null>(null);
   const weatherRef = useRef<HTMLCanvasElement>(null);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
@@ -314,7 +320,46 @@ export function Scanner({ save, setSave, snapshots }: {
       if (c2) {
         const { ctx, w: width, h: height } = c2;
         ctx.clearRect(0, 0, width, height);
-        if (phase === "charging") {
+        if (hl && !hlSpin && !hlReveal) {
+          // the challenge: current player + stat, big
+          ctx.textAlign = "center";
+          ctx.fillStyle = "rgba(125,138,165,0.9)";
+          ctx.font = "700 13px ui-sans-serif, system-ui, sans-serif";
+          ctx.fillText(`${hl.current.name} · ${hl.current.position} · ${hl.current.team}`, width / 2, height * 0.3);
+          ctx.fillStyle = "#e8edf7";
+          ctx.font = `900 ${Math.min(64, height * 0.4)}px ui-sans-serif, system-ui, sans-serif`;
+          ctx.fillText(String(hl.current.coreStats[hl.stat]), width / 2, height * 0.56);
+          ctx.fillStyle = "#38bdf8";
+          ctx.font = "800 16px ui-sans-serif, system-ui, sans-serif";
+          ctx.fillText(hl.stat, width / 2, height * 0.72);
+          ctx.fillStyle = "rgba(125,138,165,0.6)";
+          ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
+          ctx.fillText("NEXT PULL'S STAT — HIGHER OR LOWER?", width / 2, height * 0.86);
+          raf = requestAnimationFrame(frame);
+        } else if (hl && hlSpin) {
+          // quick wheel drama between calls
+          const names = pool;
+          ctx.textAlign = "center";
+          ctx.font = "900 34px ui-sans-serif, system-ui, sans-serif";
+          for (let g = 1; g <= 3; g++) {
+            ctx.fillStyle = "rgba(232,237,247,0.12)";
+            ctx.fillText(names[Math.floor(Math.random() * names.length)].name, width / 2 + g * 14, height / 2);
+          }
+          ctx.fillStyle = "#e8edf7";
+          ctx.fillText(names[Math.floor(Math.random() * names.length)].name, width / 2, height / 2);
+          raf = requestAnimationFrame(frame);
+        } else if (hl && hlReveal) {
+          ctx.textAlign = "center";
+          ctx.fillStyle = "rgba(125,138,165,0.9)";
+          ctx.font = "700 13px ui-sans-serif, system-ui, sans-serif";
+          ctx.fillText(`${hlReveal.next.name} · ${hlReveal.next.position} · ${hlReveal.next.team}`, width / 2, height * 0.24);
+          ctx.fillStyle = hlReveal.outcome === "wrong" ? "#d3a06f" : hlReveal.outcome === "push" ? "#9aa8c4" : "#fbbf24";
+          ctx.font = `900 ${Math.min(52, height * 0.32)}px ui-sans-serif, system-ui, sans-serif`;
+          ctx.fillText(hlReveal.currentValue + " to " + hlReveal.nextValue, width / 2, height * 0.5);
+          ctx.font = "900 22px ui-sans-serif, system-ui, sans-serif";
+          ctx.fillText(hlReveal.outcome === "correct" ? "CALLED IT" : hlReveal.outcome === "push" ? "DEAD EVEN — PUSH" : "HE IS ASS. SO WAS THAT CALL.", width / 2, height * 0.68);
+          raf = requestAnimationFrame(frame);
+        } else if (phase === "charging") {
           // ── the convergence: energy gathers inward while you hold ──
           const lvl = chargeLevelRef.current;
           const cx = width / 2, cy = height / 2;
@@ -616,7 +661,7 @@ export function Scanner({ save, setSave, snapshots }: {
   }, [after, burst, clearTimers, duel, phase, pool, pulse, reduceMotion, save, setSave, teams]);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (phase === "scanning") return;
+    if (phase === "scanning" || hl) return;
     chargingRef.current = true;
     chargeLevelRef.current = 0;
     e.preventDefault();
@@ -637,6 +682,40 @@ export function Scanner({ save, setSave, snapshots }: {
         lastLevel = level;
       }
     }, 60);
+  };
+
+  const hlCall = (guess: Call) => {
+    if (!hl || hlSpin || hlOver) return;
+    pulse(HAPTICS.ui);
+    setHlReveal(null);
+    setHlSpin(true);
+    synth.kick();
+    const seed = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const next = pool[Math.floor(Math.random() * pool.length)];
+    // brief wheel drama, then the verdict
+    window.setTimeout(() => {
+      const r = callHL(hl, next, guess, seed);
+      setHlSpin(false);
+      setHlReveal({ next: r.next, stat: hl.stat, nextValue: r.nextValue, currentValue: r.currentValue, outcome: r.outcome });
+      if (r.outcome === "wrong") {
+        const line = CHEEKS_LINES[Math.floor(Math.random() * CHEEKS_LINES.length)];
+        synth.celebrate("cheeks");
+        pulse(HAPTICS.cheeks);
+        setCelebration({ kind: "cheeks", line });
+        const token = ++celebrationToken.current;
+        window.setTimeout(() => {
+          if (celebrationToken.current === token) setCelebration(null);
+        }, CELEBRATION_MS.cheeks);
+        window.setTimeout(() => setHlOver({ streak: 0, best: r.state.best }), 1200);
+      } else if (r.outcome === "correct") {
+        synth.rollupNote(4);
+        pulse(HAPTICS.rare);
+      } else {
+        synth.rollupNote(2);
+        pulse(HAPTICS.ui);
+      }
+      setHl(r.state);
+    }, reduceMotion ? 350 : 1250);
   };
 
   const onPointerUp = () => {
@@ -664,7 +743,7 @@ export function Scanner({ save, setSave, snapshots }: {
     </span>;
 
   return (
-    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}${save.noMids ? " nomids" : ""}${weather.gloom ? ` gloom-${weather.gloom}` : ""}`}
+    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}${save.noMids ? " nomids" : ""}${hl ? " hlmode" : ""}${weather.gloom ? ` gloom-${weather.gloom}` : ""}`}
       style={{ "--tp": team?.primary ?? "#1e293b", "--ts": team?.secondary ?? "#0f172a" } as React.CSSProperties}>
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
@@ -695,6 +774,11 @@ export function Scanner({ save, setSave, snapshots }: {
 
       {showSettings && (
         <div className="settings" role="dialog" aria-label="Settings" data-testid="settings">
+          <button className="duel-row" data-testid="hl-start"
+            disabled={!!hl}
+            onClick={() => { pulse(HAPTICS.ui); setHlIntro(true); }}>
+            <span className="nm-text"><b>HIGHER / LOWER</b><small>the stat gauntlet — call the next pull</small></span>
+          </button>
           <button className="duel-row" data-testid="duel-start"
             disabled={!!duel}
             onClick={() => { pulse(HAPTICS.ui); setDuelIntro(true); }}>
@@ -746,17 +830,25 @@ export function Scanner({ save, setSave, snapshots }: {
         </div>
       )}
 
-      {duel && !duel.finished && (
-        <div className={`duel-chip p${duel.turn + 1}`} data-testid="duel-chip">
-          PLAYER {duel.turn + 1} · PULL {Math.min(duel.players[duel.turn].pulls + 1, DUEL_PULLS)}/{DUEL_PULLS}
-        </div>
-      )}
       <main className="stage-grid">
         <section className="stage">
+          {duel && !duel.finished && (
+            <div className={`duel-chip p${duel.turn + 1}`} data-testid="duel-chip">
+              PLAYER {duel.turn + 1} · PULL {Math.min(duel.players[duel.turn].pulls + 1, DUEL_PULLS)}/{DUEL_PULLS}
+            </div>
+          )}
           <div className="hero" data-testid="hero">
             <span>PEAKS</span><em>OR</em><span>CHEEKS</span>
           </div>
           {save.noMids && <div className="nomids-badge" data-testid="nomids-badge">NO MIDS</div>}
+          {hl && !hlOver && (
+            <div className="hl-btns" data-testid="hl-btns">
+              <button className="hl-btn hi" disabled={hlSpin}
+                onClick={() => hlCall("higher")}>HIGHER</button>
+              <button className="hl-btn lo" disabled={hlSpin}
+                onClick={() => hlCall("lower")}>LOWER</button>
+            </div>
+          )}
           <div className="focus-stage">
             <div className="focus-wrap">
               <canvas ref={focusRef} className="focus" aria-label="Scan focus window" />
@@ -779,7 +871,7 @@ export function Scanner({ save, setSave, snapshots }: {
             onPointerCancel={onPointerUp}
             onContextMenu={(e) => e.preventDefault()}>
             <span>{phase === "charging" ? "RELEASE" : phase === "scanning" ? "SCANNING…" : "SCAN"}</span>
-            <small>{duel && !duel.finished
+            <small>{hl && !hlOver ? `streak ${hl.streak} · best ${hl.best}` : duel && !duel.finished
               ? `P${duel.turn + 1} · pull ${Math.min(duel.players[duel.turn].pulls + 1, DUEL_PULLS)}`
               : phase === "idle" ? "hold to charge" : ""}</small>
           </button>
@@ -819,6 +911,24 @@ export function Scanner({ save, setSave, snapshots }: {
             onClick={() => { pulse(HAPTICS.ui); setSave((s) => ({ ...s, group: g })); }}>{g}</button>
         ))}
       </nav>
+      {hlIntro && !hl && (
+        <div className="duel-overlay intro" data-testid="hl-intro" role="dialog">
+          <div className="duel-wash split" />
+          <div className="duel-title">HIGHER / LOWER</div>
+          <div className="duel-line">The wheel shows a player's stat. Call the next pull's — higher or lower.</div>
+          <div className="duel-line dim">Wrong call ends the run. Ties push. The stat rotates every round.</div>
+          <button className="duel-go" onClick={() => {
+            pulse(HAPTICS.duelStart);
+            synth.duelStart();
+            setHlIntro(false);
+            setShowSettings(false);
+            setHlOver(null);
+            setHlReveal(null);
+            setHl(startHL(pool, `${Date.now().toString(36)}`));
+          }}>DEAL THE FIRST STAT</button>
+          <button className="duel-cancel" onClick={() => setHlIntro(false)}>never mind</button>
+        </div>
+      )}
       {duelIntro && !duel && (
         <div className="duel-overlay intro" data-testid="duel-intro" role="dialog">
           <div className="duel-wash split" />
@@ -833,6 +943,18 @@ export function Scanner({ save, setSave, snapshots }: {
             setDuel(startDuel());
           }}>PLAYER 1 — READY</button>
           <button className="duel-cancel" onClick={() => setDuelIntro(false)}>never mind</button>
+        </div>
+      )}
+      {hlOver && hl && (
+        <div className="duel-overlay finale whl" data-testid="hl-over" role="dialog">
+          <div className="duel-wash" />
+          <div className="duel-title">RUN OVER</div>
+          <div className="duel-math">run {hlOver.streak === 0 ? hl.streak : hlOver.streak} · best {hlOver.best}</div>
+          <div className="duel-line dim">{hl.current.name} broke your heart at {hl.current.coreStats[hl.stat]} {hl.stat}.</div>
+          <div className="duel-actions">
+            <button onClick={() => { pulse(HAPTICS.duelStart); synth.duelStart(); setHlOver(null); setHlReveal(null); setHl(startHL(pool, `${Date.now().toString(36)}`)); }}>PLAY AGAIN</button>
+            <button onClick={() => { pulse(HAPTICS.ui); setHl(null); setHlOver(null); setHlReveal(null); }}>DONE</button>
+          </div>
         </div>
       )}
       {duel?.finished && (() => {
