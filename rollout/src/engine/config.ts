@@ -25,7 +25,8 @@ export const PULL_LOG_MAX = 60;
 // DB/ST had 6-player commons giving each scrub ~15%). Overshooting tiers
 // redistribute their mass uniformly over the whole pool. Legend/elite are
 // exempt — small precious tiers are the point.
-export const MAX_PLAYER_SHARE = 0.08;      // per-pull log cap (luck strip + vault)
+export const MAX_PLAYER_SHARE = 0.08;      // draw concentration cap: more than this for one player voids the tier (tierMassOf)
+export const MIN_VERDICT_POOL = 4;        // NO MIDS needs both verdict classes this deep
 
 export const TIER_RANK: Record<Tier, number> = { common: 0, rare: 1, elite: 2, legend: 3 };
 export const isBigTier = (t: Tier) => TIER_RANK[t] >= TIER_RANK.elite;

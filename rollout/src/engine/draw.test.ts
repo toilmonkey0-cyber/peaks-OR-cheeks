@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Card, Tier } from "@/data/schema";
 import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_LINES, NEAR_MISS_MIN_RATING, ODDS, REEL_SIZE, TIER_RANK } from "./config";
 import { poolVerdictRates } from "./luck";
-import { filterPool, nextCheekStreak, planScan, stripMids, verdictOf } from "./draw";
+import { filterPool, nextCheekStreak, planScan, stripMids, verdictOf, verdictViable } from "./draw";
 import { loadSnapshot } from "@/data/snapshot";
 
 const mk = (id: string, rating: number, position = "WR", name = id): Card => {
@@ -64,6 +64,34 @@ describe("planScan", () => {
       expect(TIER_RANK[plan.tier]).toBeLessThanOrEqual(maxTier);
       expect(stPool).toContain(plan.card);
     }
+  });
+});
+
+describe("NO MIDS viability", () => {
+  it("thin groups (WR: 1 cheeks player) keep their mids — no peak floods", () => {
+    const wr = filterPool(loadSnapshot("m26").players, ["WR"]);
+    expect(verdictViable(wr)).toBe(false);          // 54 peaks, 1 cheek
+    const pool = verdictViable(wr) ? stripMids(wr) : wr;
+    expect(pool).toHaveLength(wr.length);           // unstripped
+  });
+
+  it("deep groups strip normally (ALL, ST)", () => {
+    const all = loadSnapshot("m26").players;
+    expect(verdictViable(all)).toBe(true);
+    const st = filterPool(all, ["K", "P", "LS"]);
+    expect(verdictViable(st)).toBe(true);
+    expect(stripMids(st).length).toBeLessThan(st.length);
+  });
+
+  it("the regression Aaron hit: WR + NO MIDS can no longer flood peaks", () => {
+    const wr = filterPool(loadSnapshot("m26").players, ["WR"]);
+    const pool = verdictViable(wr) ? stripMids(wr) : wr; // gated in the app the same way
+    let peaks = 0;
+    const n = 300;
+    for (let i = 0; i < n; i++) {
+      if (verdictOf(planScan(`wrflood-${i}`, pool).card) === "peak") peaks++;
+    }
+    expect(peaks / n).toBeLessThan(0.35);           // ~9.5% expected, was ~98%
   });
 });
 

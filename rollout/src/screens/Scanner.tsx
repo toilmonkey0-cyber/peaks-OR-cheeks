@@ -4,7 +4,7 @@ import {
   ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
   STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
 } from "@/engine/config";
-import { filterPool, planScan, stripMids, verdictOf, type ScanPlan, type Verdict } from "@/engine/draw";
+import { filterPool, planScan, stripMids, verdictOf, verdictViable, type ScanPlan, type Verdict } from "@/engine/draw";
 import { tickTimes, rollupNotes } from "@/audio/schedule";
 import { synth } from "@/audio/synth";
 import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } from "@/haptics/haptics";
@@ -119,10 +119,11 @@ export function Scanner({ save, setSave, snapshots }: {
   const stats = save.stats[source];
   const teams: Record<string, Team> = useMemo(
     () => Object.fromEntries(snapshot.teams.map((t) => [t.abbr, t])), [snapshot]);
-  const pool = useMemo(() => {
-    const p = filterPool(snapshot.players, GROUPS[save.group] ?? null);
-    return save.noMids ? stripMids(p) : p;
-  }, [snapshot.players, save.group, save.noMids]);
+  const basePool = useMemo(() => filterPool(snapshot.players, GROUPS[save.group] ?? null),
+    [snapshot.players, save.group]);
+  const midsViable = useMemo(() => verdictViable(basePool), [basePool]);
+  const pool = useMemo(() => (save.noMids && midsViable ? stripMids(basePool) : basePool),
+    [basePool, save.noMids, midsViable]);
   const verdictRates = useMemo(() => poolVerdictRates(pool), [pool]);
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
@@ -840,7 +841,12 @@ export function Scanner({ save, setSave, snapshots }: {
           <div className="hero" data-testid="hero">
             <span>PEAKS</span><em>OR</em><span>CHEEKS</span>
           </div>
-          {save.noMids && <div className="nomids-badge" data-testid="nomids-badge">NO MIDS</div>}
+          {save.noMids && (
+            <div className={`nomids-badge${midsViable ? "" : " thin"}`} data-testid="nomids-badge"
+              title={midsViable ? undefined : "This group's pool is too thin for verdict-only pulls — mids stay in."}>
+              NO MIDS{midsViable ? "" : " · THIN POOL"}
+            </div>
+          )}
           {hl && !hlOver && (
             <div className="hl-btns" data-testid="hl-btns">
               <button className="hl-btn hi" disabled={hlSpin}

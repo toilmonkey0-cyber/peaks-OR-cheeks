@@ -1,5 +1,5 @@
 import type { Card, Tier } from "@/data/schema";
-import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, MAX_PLAYER_SHARE, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
+import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, MAX_PLAYER_SHARE, MIN_VERDICT_POOL, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
 import { makeRng } from "./rng";
 
 export interface ReelEntry { name: string; tier: Tier; rating: number }
@@ -121,6 +121,18 @@ export function filterPool(players: Card[], groupPositions: string[] | null): Ca
 
 /** NO MIDS: drop every verdict-free rating (63–79). Pool-level, so the draw,
  *  expected rates, gauge, and streaks all stay coherent automatically. */
+/** NO MIDS viability: both verdict classes need MIN_VERDICT_POOL players, or
+ *  stripping collapses the draw (WR keeps 54 peaks and ONE cheeks player —
+ *  every pull floods peaks). Thin groups keep their mids instead. */
+export function verdictViable(pool: Card[]): boolean {
+  let cheeks = 0, peaks = 0;
+  for (const c of pool) {
+    if (c.rating <= CHEEKS_MAX_RATING) cheeks++;
+    else if (c.rating >= PEAK_MIN_RATING) peaks++;
+  }
+  return cheeks >= MIN_VERDICT_POOL && peaks >= MIN_VERDICT_POOL;
+}
+
 export const stripMids = (pool: Card[]): Card[] =>
   pool.filter((c) => c.rating <= CHEEKS_MAX_RATING || c.rating >= PEAK_MIN_RATING);
 // ── verdicts ────────────────────────────────────────────────────────────────
