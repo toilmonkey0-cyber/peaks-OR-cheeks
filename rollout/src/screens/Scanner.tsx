@@ -80,6 +80,7 @@ export function Scanner({ save, setSave, snapshots }: {
   const burstRef = useRef<HTMLCanvasElement>(null);
   const chargeTimer = useRef<number | null>(null);
   const chargingRef = useRef(false);
+  const chargeLevelRef = useRef(0);
   const reduceMotion = useMemo(
     () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches, []);
   const switchSource = (s: Source) => {
@@ -269,6 +270,11 @@ export function Scanner({ save, setSave, snapshots }: {
     if (!canvas) return;
     let raf = 0;
     const start = performance.now();
+    const chargeParts = Array.from({ length: 26 }, () => ({
+      r: 0.15 + Math.random() * 0.95, a: Math.random() * Math.PI * 2,
+    }));
+    let lastT = start;
+    let dtAvg = 16;
 
     const drawName = (c2: { ctx: CanvasRenderingContext2D; w: number; h: number },
       name: string, blur: number, color: string) => {
@@ -301,12 +307,69 @@ export function Scanner({ save, setSave, snapshots }: {
       // rAF timestamps are frame times and can predate the effect-mount
       // performance.now() by a frame — clamp or the first frame indexes reel[-1]
       const t = Math.max(0, now - start);
+      dtAvg = dtAvg * 0.9 + Math.min(50, Math.max(0, now - lastT)) * 0.1;
+      lastT = now;
       const plan = planRef.current;
       const c2 = ctx2d(canvas);
       if (c2) {
         const { ctx, w: width, h: height } = c2;
         ctx.clearRect(0, 0, width, height);
-        if (phase !== "scanning" || !plan) {
+        if (phase === "charging") {
+          // ── the convergence: energy gathers inward while you hold ──
+          const lvl = chargeLevelRef.current;
+          const cx = width / 2, cy = height / 2;
+          const maxR = Math.hypot(width, height) / 2;
+          // grid dims as the charge takes over
+          ctx.strokeStyle = `rgba(46,60,95,${0.35 * (1 - lvl * 0.6)})`;
+          for (let gx = 0; gx < width; gx += 34) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, height); ctx.stroke(); }
+          for (let gy = 0; gy < height; gy += 34) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(width, gy); ctx.stroke(); }
+          // sweep bar accelerates on the same quadratic as the riser
+          const sweepSpeed = 0.06 + lvl * lvl * 0.9;
+          const sweep = (t * sweepSpeed) % (width + 220) - 110;
+          const grad = ctx.createLinearGradient(sweep - 90, 0, sweep + 90, 0);
+          grad.addColorStop(0, "rgba(56,189,248,0)");
+          grad.addColorStop(0.5, `rgba(56,189,248,${0.1 + lvl * 0.12})`);
+          grad.addColorStop(1, "rgba(56,189,248,0)");
+          ctx.fillStyle = grad;
+          ctx.fillRect(sweep - 90, 0, 180, height);
+          if (!reduceMotion) {
+            // inward streaks: spawn at the rim, rush toward the core
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = `rgba(140,205,255,${0.25 + lvl * 0.55})`;
+            for (const p of chargeParts) {
+              p.r -= (0.0016 + lvl * lvl * 0.0095) * (dtAvg);
+              if (p.r < 0.06) { p.r = 0.52 + Math.random() * 0.6; p.a = Math.random() * Math.PI * 2; }
+              const rr = p.r * maxR;
+              const dx = Math.cos(p.a), dy = Math.sin(p.a);
+              const tail = 14 + lvl * 26;
+              ctx.beginPath();
+              ctx.moveTo(cx + dx * (rr + tail), cy + dy * (rr + tail));
+              ctx.lineTo(cx + dx * rr, cy + dy * rr);
+              ctx.stroke();
+            }
+          }
+          // the core: grows on a cubic, pulses faster as it fills
+          const pulse = 1 + 0.09 * Math.sin((now / 1000) * (4 + lvl * 14));
+          const coreR = (4 + lvl * lvl * lvl * 26) * pulse;
+          const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(coreR, 30));
+          coreGrad.addColorStop(0, `rgba(200,235,255,${0.35 + lvl * 0.6})`);
+          coreGrad.addColorStop(0.4, `rgba(56,189,248,${0.18 + lvl * 0.35})`);
+          coreGrad.addColorStop(1, "rgba(56,189,248,0)");
+          ctx.fillStyle = coreGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, Math.max(coreR, 30), 0, Math.PI * 2);
+          ctx.fill();
+          // full charge: echo rings ripple outward
+          if (lvl >= 1) {
+            const phaseT = (now % 600) / 600;
+            ctx.strokeStyle = `rgba(200,235,255,${0.5 * (1 - phaseT)})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, coreR + phaseT * 46, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          raf = requestAnimationFrame(frame);
+        } else if (phase !== "scanning" || !plan) {
           if (phase === "result" && planRef.current) {
             drawName(c2, planRef.current.card.name, 0, TIER_ACCENT[planRef.current.card.tier]);
           } else {
@@ -330,6 +393,15 @@ export function Scanner({ save, setSave, snapshots }: {
           // canvas resets from phase-transition resizes
           raf = requestAnimationFrame(frame);
         } else {
+          // release: the converged core detonates outward into the stream
+          if (t < 240) {
+            const k = t / 240;
+            ctx.strokeStyle = `rgba(200,235,255,${0.55 * (1 - k)})`;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, k * Math.max(width, height) * 0.55, 0, Math.PI * 2);
+            ctx.stroke();
+          }
           const p = Math.min(1, t / plan.delays.name);
           if (!reduceMotion) {
             const idx = Math.max(0, Math.floor(easeOutQuart(p) * (plan.reel.length - 1)));
@@ -546,6 +618,7 @@ export function Scanner({ save, setSave, snapshots }: {
   const onPointerDown = (e: React.PointerEvent) => {
     if (phase === "scanning") return;
     chargingRef.current = true;
+    chargeLevelRef.current = 0;
     e.preventDefault();
     synth.ensure();
     setPhase("charging");
@@ -556,6 +629,7 @@ export function Scanner({ save, setSave, snapshots }: {
     chargeTimer.current = window.setInterval(() => {
       const elapsed = performance.now() - t0;
       setChargeMs(elapsed);
+      chargeLevelRef.current = Math.min(1, elapsed / 1400);
       synth.chargeUpdate(elapsed);
       const level = chargeLevel(elapsed);
       if (level !== lastLevel) {
