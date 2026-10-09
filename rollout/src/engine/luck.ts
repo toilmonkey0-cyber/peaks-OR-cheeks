@@ -1,37 +1,28 @@
 import type { Card, Tier } from "@/data/schema";
 import type { SourceStats } from "@/storage/storage";
-import { CHEEKS_MAX_RATING, ODDS, PEAK_MIN_RATING, TIER_RANK } from "./config";
-
-const TIER_ORDER: Tier[] = ["legend", "elite", "rare", "common"];
+import { CHEEKS_MAX_RATING, PEAK_MIN_RATING } from "./config";
+import { tierMassOf } from "./draw";
 
 /**
- * Probability mass that actually lands on each non-empty tier after
- * degradeTier redistribution (empty tiers fall through to lower tiers).
+ * True per-pull probability of each verdict for a given pool (filter-aware).
+ * Uses the SAME tier resolution as the draw (tierMassOf) so expected rates
+ * and actual draws can never drift apart — including the degenerate-tier
+ * any-bucket, which samples verdict probability uniformly from the pool.
  */
-function resolvedTierWeights(pool: Card[]): Record<Tier, number> {
-  const counts: Record<Tier, number> = { legend: 0, elite: 0, rare: 0, common: 0 };
-  for (const c of pool) counts[c.tier]++;
-  const out: Record<Tier, number> = { legend: 0, elite: 0, rare: 0, common: 0 };
-  for (const t of TIER_ORDER) {
-    const resolved = [t, ...TIER_ORDER.filter((x) => TIER_RANK[x] < TIER_RANK[t])]
-      .find((x) => counts[x] > 0);
-    if (resolved) out[resolved] += ODDS[t] / 100; // ODDS are percents
-  }
-  return out;
-}
-
-/** True per-pull probability of each verdict for a given pool (filter-aware). */
 export function poolVerdictRates(pool: Card[]): { pPeak: number; pCheeks: number } {
-  const weights = resolvedTierWeights(pool);
+  if (pool.length === 0) return { pPeak: 0, pCheeks: 0 };
+  const { tier, any } = tierMassOf(pool);
   const members: Record<Tier, Card[]> = { legend: [], elite: [], rare: [], common: [] };
   for (const c of pool) members[c.tier].push(c);
   let pPeak = 0, pCheeks = 0;
-  for (const t of TIER_ORDER) {
+  for (const t of Object.keys(tier) as Tier[]) {
     const n = members[t].length;
-    if (!n || !weights[t]) continue;
-    pPeak += weights[t] * members[t].filter((c) => c.rating >= PEAK_MIN_RATING).length / n;
-    pCheeks += weights[t] * members[t].filter((c) => c.rating <= CHEEKS_MAX_RATING).length / n;
+    if (!n || !tier[t]) continue;
+    pPeak += (tier[t] as number) * members[t].filter((c) => c.rating >= PEAK_MIN_RATING).length / n;
+    pCheeks += (tier[t] as number) * members[t].filter((c) => c.rating <= CHEEKS_MAX_RATING).length / n;
   }
+  pPeak += any * pool.filter((c) => c.rating >= PEAK_MIN_RATING).length / pool.length;
+  pCheeks += any * pool.filter((c) => c.rating <= CHEEKS_MAX_RATING).length / pool.length;
   return { pPeak, pCheeks };
 }
 

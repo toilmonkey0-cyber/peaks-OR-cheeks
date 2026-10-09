@@ -19,7 +19,11 @@ export const DELAYS = {
 } as const;
 
 export const REEL_SIZE = 30;         // names in the stream (incl. winner last)
-export const PULL_LOG_MAX = 60;      // per-pull log cap (luck strip + vault)
+export const PULL_LOG_MAX = 60;
+// A resolved rare/common tier with fewer players than this is degenerate
+// (e.g. NO MIDS + WR: exactly ONE cheeks-eligible receiver) — its mass
+// redistributes uniformly over the whole pool instead of looping one card.
+export const MIN_TIER_POOL = 5;      // per-pull log cap (luck strip + vault)
 
 export const TIER_RANK: Record<Tier, number> = { common: 0, rare: 1, elite: 2, legend: 3 };
 export const isBigTier = (t: Tier) => TIER_RANK[t] >= TIER_RANK.elite;

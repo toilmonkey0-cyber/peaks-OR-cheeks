@@ -1,5 +1,5 @@
 import type { Card, Tier } from "@/data/schema";
-import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
+import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, MIN_TIER_POOL, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
 import { makeRng } from "./rng";
 
 export interface ReelEntry { name: string; tier: Tier; rating: number }
@@ -15,32 +15,52 @@ export interface ScanPlan {
 
 const TIER_ORDER: Tier[] = ["legend", "elite", "rare", "common"];
 
-function drawTier(r: number): Tier {
-  // weighted walk over ODDS (percent, sums to 100)
-  let acc = 0;
-  for (const t of TIER_ORDER) {
-    acc += ODDS[t];
-    if (r < acc) return t;
-  }
-  return "common";
-}
-
 function pickUniform<T>(items: T[], r: number): T {
   return items[Math.min(items.length - 1, Math.floor(r * items.length))];
 }
 
-/** Highest non-empty tier at-or-below the drawn one (filtered pools can lack legends). */
-function degradeTier(pool: Card[], tier: Tier): Tier {
-  for (const t of [tier, ...TIER_ORDER.filter((x) => TIER_RANK[x] < TIER_RANK[tier])]) {
-    if (pool.some((c) => c.tier === t)) return t;
+/**
+ * Tier resolution shared by the draw AND the luck meter's expected rates so
+ * the two can never drift. Empty tiers walk down (filtered pools can lack
+ * legends). A resolved rare/common tier with fewer than MIN_TIER_POOL
+ * players is degenerate — its mass goes to the any-bucket (uniform over the
+ * whole pool) instead of looping one card. Legend/elite are always drawable:
+ * small precious tiers are the point, not the disease.
+ */
+export interface TierMass {
+  tier: Partial<Record<Tier, number>>; // fractions, per resolved tier
+  any: number;                         // fraction drawn uniformly from the pool
+}
+
+export function tierMassOf(pool: Card[]): TierMass {
+  const counts: Record<Tier, number> = { legend: 0, elite: 0, rare: 0, common: 0 };
+  for (const c of pool) counts[c.tier]++;
+  const out: Partial<Record<Tier, number>> = {};
+  let any = 0;
+  for (const drawn of TIER_ORDER) {
+    const w = ODDS[drawn] / 100;
+    const resolved = [drawn, ...TIER_ORDER.filter((x) => TIER_RANK[x] < TIER_RANK[drawn])]
+      .find((t) => counts[t] > 0);
+    if (!resolved) { any += w; continue; }
+    const degenerate = (resolved === "rare" || resolved === "common") && counts[resolved] < MIN_TIER_POOL;
+    if (degenerate) any += w;
+    else out[resolved] = (out[resolved] ?? 0) + w;
   }
-  return "common";
+  return { tier: out, any };
 }
 
 export function planScan(planSeed: string, pool: Card[]): ScanPlan {
   const rng = makeRng(planSeed);
-  const tier = degradeTier(pool, drawTier(rng() * 100));
-  const inTier = pool.filter((c) => c.tier === tier);
+  const mass = tierMassOf(pool);
+  const r = rng();
+  let acc = 0;
+  let resolved: Tier | null = null; // null → any-bucket: uniform over the pool
+  for (const t of TIER_ORDER) {
+    acc += mass.tier[t] ?? 0;
+    if (r < acc) { resolved = t; break; }
+  }
+  const inTier = resolved === null ? pool : pool.filter((c) => c.tier === resolved);
+  const tier = resolved ?? (pool[pool.length - 1]?.tier ?? "common");
   const card = pickUniform(inTier, rng());
 
   // Near-miss decided first so the reel is always exactly REEL_SIZE.
