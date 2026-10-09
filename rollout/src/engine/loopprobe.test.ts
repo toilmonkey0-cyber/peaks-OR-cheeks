@@ -56,6 +56,24 @@ describe("loop diagnostic", () => {
     }
   });
 
+  it("NO MIDS: no group ping-pongs between two players (top-2 combined share)", () => {
+    for (const src of ["m26", "m27"] as const) {
+      const snap = src === "m26" ? snap26 : snap27;
+      for (const [name, positions] of Object.entries(GROUPS)) {
+        const pool = stripMids(filterPool(snap.players, positions));
+        if (pool.length === 0) continue;
+        const counts = new Map<string, number>();
+        const N = 200;
+        for (let i = 0; i < N; i++) {
+          const id = planScan(`pp-${src}-${name}-${i}-${Math.random()}`, pool).card.playerId;
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+        }
+        const top2 = [...counts.values()].sort((a, b) => b - a).slice(0, 2).reduce((a, b) => a + b, 0);
+        expect(top2 / N).toBeLessThan(0.2); // a two-card loop would dominate 60%+
+      }
+    }
+  });
+
   it("every group, m26, sanity shares", () => {
     for (const [name, positions] of Object.entries(GROUPS)) {
       const pool = filterPool(snap26.players, positions);
