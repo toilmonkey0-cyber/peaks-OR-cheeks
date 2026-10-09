@@ -1,5 +1,5 @@
 import type { Card, Tier } from "@/data/schema";
-import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, MIN_TIER_POOL, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
+import { ATOMIC_CHEEKS_MAX_RATING, CHEEKS_MAX_RATING, DELAYS, MAX_PLAYER_SHARE, NEAR_MISS_CHANCE, NEAR_MISS_MIN_RATING, ODDS, PEAK_MIN_RATING, REEL_SIZE, TIER_RANK, isBigTier } from "./config";
 import { makeRng } from "./rng";
 
 export interface ReelEntry { name: string; tier: Tier; rating: number }
@@ -22,9 +22,10 @@ function pickUniform<T>(items: T[], r: number): T {
 /**
  * Tier resolution shared by the draw AND the luck meter's expected rates so
  * the two can never drift. Empty tiers walk down (filtered pools can lack
- * legends). A resolved rare/common tier with fewer than MIN_TIER_POOL
- * players is degenerate — its mass goes to the any-bucket (uniform over the
- * whole pool) instead of looping one card. Legend/elite are always drawable:
+ * legends). Then the concentration cap: if any resolved rare/common tier
+ * would give a single player more than MAX_PLAYER_SHARE of draws, the whole
+ * tier's mass moves to the any-bucket (uniform over the pool) — that is the
+ * loop disease, whatever the tier's size. Legend/elite are always drawable:
  * small precious tiers are the point, not the disease.
  */
 export interface TierMass {
@@ -42,9 +43,14 @@ export function tierMassOf(pool: Card[]): TierMass {
     const resolved = [drawn, ...TIER_ORDER.filter((x) => TIER_RANK[x] < TIER_RANK[drawn])]
       .find((t) => counts[t] > 0);
     if (!resolved) { any += w; continue; }
-    const degenerate = (resolved === "rare" || resolved === "common") && counts[resolved] < MIN_TIER_POOL;
-    if (degenerate) any += w;
-    else out[resolved] = (out[resolved] ?? 0) + w;
+    out[resolved] = (out[resolved] ?? 0) + w;
+  }
+  for (const t of ["rare", "common"] as const) {
+    const m = out[t] ?? 0;
+    if (counts[t] > 0 && m / counts[t] > MAX_PLAYER_SHARE) {
+      any += m;
+      delete out[t];
+    }
   }
   return { tier: out, any };
 }
