@@ -2,7 +2,7 @@ export type HapticName =
   | "tickLight" | "charge0" | "charge1" | "charge2" | "charge3"
   | "lock1" | "lock2" | "lock3" | "lockFinal"
   | "nearMiss" | "common" | "rare" | "elite" | "legend" | "xfactor"
-  | "peakJoy" | "cheeks" | "atomic" | "ui";
+  | "peakJoy" | "cheeks" | "atomic" | "kick" | "duelStart" | "turn" | "ui";
 
 // ms patterns — the whole vocabulary in one table
 export const HAPTICS: Record<HapticName, number[]> = {
@@ -24,6 +24,9 @@ export const HAPTICS: Record<HapticName, number[]> = {
   peakJoy: [25, 25, 25, 25, 25, 25, 25, 140],
   cheeks: [90, 70, 130],
   atomic: [90, 70, 90, 70, 220],
+  kick: [14, 18, 22],
+  duelStart: [20, 40, 20, 40, 20],
+  turn: [10, 30, 10],
   ui: [8],
 };
 

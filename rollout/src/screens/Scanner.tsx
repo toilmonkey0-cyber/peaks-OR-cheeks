@@ -11,6 +11,8 @@ import { HAPTICS, chargeLevel, haptic, setHapticsEnabled, vibrationSupported } f
 import { freshStats, recordPull, SOURCES, type SaveState, type Source } from "@/storage/storage";
 import { sourceLabel } from "@/data/snapshot";
 import { poolVerdictRates } from "@/engine/luck";
+import { advanceDuel, duelVerdict, DUEL_PULLS, recordDuelPull, startDuel, type DuelState } from "@/engine/duel";
+import { weatherOf } from "@/engine/weather";
 import { copyText } from "@/util/clipboard";
 import { CardView } from "@/components/CardView";
 import { LuckGauge } from "@/components/LuckGauge";
@@ -58,6 +60,13 @@ export function Scanner({ save, setSave, snapshots }: {
   const [sheetKind, setSheetKind] = useState<"result" | "session">("result");
   const [vaultOpen, setVaultOpen] = useState(false);
   const [modeFlash, setModeFlash] = useState(false);
+  const [duel, setDuel] = useState<DuelState | null>(null);
+  const duelPendingAdvance = useRef(false);
+  useEffect(() => {
+    (window as Window & { __duelDebug?: DuelState | null }).__duelDebug = duel;
+  }, [duel]);
+  const [duelIntro, setDuelIntro] = useState(false);
+  const weatherRef = useRef<HTMLCanvasElement>(null);
   // phones: the side column is a bottom sheet — auto-opens on a fresh result,
   // or manually via the scoreline (history viewer)
   const sheetOpen = (result !== null && phase === "result") || manualSheet;
@@ -70,6 +79,7 @@ export function Scanner({ save, setSave, snapshots }: {
   const tickerRef = useRef<HTMLCanvasElement>(null);
   const burstRef = useRef<HTMLCanvasElement>(null);
   const chargeTimer = useRef<number | null>(null);
+  const chargingRef = useRef(false);
   const reduceMotion = useMemo(
     () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches, []);
   const switchSource = (s: Source) => {
@@ -110,6 +120,9 @@ export function Scanner({ save, setSave, snapshots }: {
   const byId = useMemo(() => Object.fromEntries(snapshot.players.map((p) => [p.playerId, p])),
     [snapshot.players]);
   const ticks = useMemo(() => ticksFromLog(stats.pullLog, byId), [stats.pullLog, byId]);
+  const weather = useMemo(() => weatherOf(
+    stats.peaks, ticks.filter((t) => t.verdict === "atomic").length, stats.cheekStreak),
+  [stats.peaks, ticks, stats.cheekStreak]);
 
   const shownTeam = result ?? (planRef.current?.card ?? null);
 
@@ -147,7 +160,7 @@ export function Scanner({ save, setSave, snapshots }: {
       const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
       if (w > 0 && h > 0 && (c.width !== w || c.height !== h)) { c.width = w; c.height = h; }
     };
-    const canvases = [focusRef.current, tickerRef.current, burstRef.current];
+    const canvases = [focusRef.current, tickerRef.current, burstRef.current, weatherRef.current];
     const run = () => canvases.forEach(fit);
     run();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(run) : null;
@@ -155,6 +168,64 @@ export function Scanner({ save, setSave, snapshots }: {
     window.addEventListener("resize", run);
     return () => { ro?.disconnect(); window.removeEventListener("resize", run); };
   }, []);
+
+  // ── stage weather: gold dust, sad leaves — derived from stats ─────────────
+  useEffect(() => {
+    const canvas = weatherRef.current;
+    if (!canvas || reduceMotion) return;
+    const motes = Array.from({ length: weather.motes }, () => ({
+      x: Math.random(), y: Math.random(),
+      vx: (Math.random() - 0.5) * 0.00035, vy: 0.0002 + Math.random() * 0.0004,
+      ph: Math.random() * Math.PI * 2, sp: 0.5 + Math.random(),
+    }));
+    type Leaf = { x: number; y: number; vy: number; sway: number; rot: number };
+    const leafEvery = weather.leafEveryMs ?? 0;
+    let leaf: Leaf | null = null;
+    let nextLeafAt = leafEvery ? performance.now() + leafEvery / 2 : Infinity;
+    let raf = 0;
+    let last = performance.now();
+    const frame = (now: number) => {
+      const dt = Math.min(50, now - last);
+      last = now;
+      const c2 = ctx2d(canvas);
+      if (c2) {
+        const { ctx, w, h } = c2;
+        ctx.clearRect(0, 0, w, h);
+        for (const m of motes) {
+          m.x += m.vx * dt; m.y += m.vy * dt;
+          if (m.y > 1.02) { m.y = -0.02; m.x = Math.random(); }
+          if (m.x < -0.02) m.x = 1.02; else if (m.x > 1.02) m.x = -0.02;
+          const twinkle = 0.35 + 0.35 * Math.sin((now / 1000) * m.sp + m.ph);
+          ctx.globalAlpha = twinkle * 0.55;
+          ctx.fillStyle = "#fbbf24";
+          ctx.fillRect(m.x * w, m.y * h, 2, 2);
+        }
+        if (leafEvery && now >= nextLeafAt && !leaf) {
+          leaf = { x: 0.15 + Math.random() * 0.7, y: -0.04, vy: 0.0012, sway: Math.random() * Math.PI * 2, rot: 0 };
+        }
+        if (leaf) {
+          leaf.sway += 0.002 * dt;
+          leaf.rot += 0.004 * dt;
+          leaf.y += leaf.vy * dt;
+          leaf.x += Math.sin(leaf.sway) * 0.0007 * dt;
+          ctx.save();
+          ctx.globalAlpha = 0.7;
+          ctx.translate(leaf.x * w, leaf.y * h);
+          ctx.rotate(leaf.rot);
+          ctx.fillStyle = "#8a5a33";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 4, 8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          if (leaf.y > 1.05) { leaf = null; nextLeafAt = now + leafEvery; }
+        }
+        ctx.globalAlpha = 1;
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [weather.motes, weather.leafEveryMs, reduceMotion]);
 
   // ── ambient ticker (always on, cheap) ──────────────────────────────────────
   useEffect(() => {
@@ -323,8 +394,34 @@ export function Scanner({ save, setSave, snapshots }: {
   }, [reduceMotion]);
 
   const fire = useCallback(() => {
-    if (phase !== "charging") return;
+    if (phase === "scanning" || duel?.finished) return;
+    // flush a pending duel turn so rapid firing can't double-pull one player;
+    // the flushed turn MUST flow downstream via this local (state updates
+    // don't affect this closure's captured `duel`)
+    let duelNow = duel;
+    if (duelNow && duelPendingAdvance.current) {
+      duelPendingAdvance.current = false;
+      duelNow = advanceDuel(duelNow);
+      setDuel(duelNow);
+      if (duelNow.finished) return;
+    }
     clearTimers();
+    // the release slaps back: squash + quake + hero drop, same frame
+    synth.kick();
+    pulse(HAPTICS.kick);
+    if (!reduceMotion && rootRef.current) {
+      const root = rootRef.current;
+      const btn = root.querySelector(".scan-btn");
+      const stage = root.querySelector(".stage");
+      const hero = root.querySelector(".hero");
+      for (const [el, cls, ms] of [
+        [btn, "kick", 200], [stage, "quake", 160], [hero, "drop", 320],
+      ] as const) {
+        if (!el) continue;
+        el.classList.add(cls);
+        window.setTimeout(() => el.classList.remove(cls), ms);
+      }
+    }
     const seed = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const plan = planScan(seed, pool);
     planRef.current = plan;
@@ -384,9 +481,32 @@ export function Scanner({ save, setSave, snapshots }: {
 
       const verdict = verdictOf(card);
       const priorStreak = save.stats[save.source].cheekStreak;
-      const outcome = recordPull(save, card, verdict, verdictRates.pPeak, verdictRates.pCheeks);
-      const streak = outcome.streak;
-      setSave(outcome.save);
+      let streak = priorStreak;
+      if (duelNow) {
+        // exhibition rules: duel pulls score duel-local only
+        const next = recordDuelPull(duelNow, card, verdict, verdictRates.pPeak, verdictRates.pCheeks);
+        setDuel(next);
+        duelPendingAdvance.current = true;
+        const linger = verdict ? VERDICT_BEAT_MS + CELEBRATION_MS[verdict] + 250 : 650;
+        after(reduceMotion ? Math.min(linger, 400) : linger, () => {
+          if (!duelPendingAdvance.current) return; // already flushed by the next fire
+          duelPendingAdvance.current = false;
+          const adv = advanceDuel(next);
+          setDuel(adv);
+          if (adv.finished) {
+            const v = duelVerdict(adv);
+            if (v.winner !== null) synth.celebrate("peak");
+            pulse(HAPTICS.duelStart);
+          } else {
+            synth.turnTick();
+            pulse(HAPTICS.turn);
+          }
+        });
+      } else {
+        const outcome = recordPull(save, card, verdict, verdictRates.pPeak, verdictRates.pCheeks);
+        streak = outcome.streak;
+        setSave(outcome.save);
+      }
       if (card.tier === "legend") {
         const team = teams[card.team];
         burst(["#fbbf24", team?.primary ?? "#38bdf8", "#ffffff", team?.secondary ?? "#a78bfa"]);
@@ -421,10 +541,11 @@ export function Scanner({ save, setSave, snapshots }: {
         });
       }
     });
-  }, [after, burst, clearTimers, phase, pool, pulse, reduceMotion, save, setSave, teams]);
+  }, [after, burst, clearTimers, duel, phase, pool, pulse, reduceMotion, save, setSave, teams]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (phase === "scanning") return;
+    chargingRef.current = true;
     e.preventDefault();
     synth.ensure();
     setPhase("charging");
@@ -445,7 +566,10 @@ export function Scanner({ save, setSave, snapshots }: {
   };
 
   const onPointerUp = () => {
-    if (phase !== "charging") return;
+    // ref-based: the "charging" state may not have committed before this
+    // runs when a celebration mount stalls the main thread (duels lose pulls)
+    if (!chargingRef.current) return;
+    chargingRef.current = false;
     if (chargeTimer.current !== null) {
       clearInterval(chargeTimer.current);
       chargeTimer.current = null;
@@ -466,7 +590,7 @@ export function Scanner({ save, setSave, snapshots }: {
     </span>;
 
   return (
-    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}${save.noMids ? " nomids" : ""}`}
+    <div ref={rootRef} className={`scanner phase-${phase}${iOSShim ? " no-vibe" : ""}${save.noMids ? " nomids" : ""}${weather.gloom ? ` gloom-${weather.gloom}` : ""}`}
       style={{ "--tp": team?.primary ?? "#1e293b", "--ts": team?.secondary ?? "#0f172a" } as React.CSSProperties}>
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
@@ -475,7 +599,7 @@ export function Scanner({ save, setSave, snapshots }: {
           {SOURCES.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={source === s}
               className={source === s ? "on" : ""}
-              disabled={phase === "scanning" || phase === "charging"}
+              disabled={phase === "scanning" || phase === "charging" || !!duel}
               onClick={() => switchSource(s)}>{sourceLabel(s, snapshots[s])}</button>
           ))}
         </div>
@@ -497,8 +621,16 @@ export function Scanner({ save, setSave, snapshots }: {
 
       {showSettings && (
         <div className="settings" role="dialog" aria-label="Settings" data-testid="settings">
+          <button className="duel-row" data-testid="duel-start"
+            disabled={!!duel}
+            onClick={() => { pulse(HAPTICS.ui); setDuelIntro(true); }}>
+            <span className="nm-text"><b>LUCK DUEL</b><small>pass and play — fate keeps score</small></span>
+          </button>
+          {duel && (
+            <button className="reset" onClick={() => { pulse(HAPTICS.ui); duelPendingAdvance.current = false; setDuel(null); }}>Abandon duel</button>
+          )}
           <label className="no-mids-row">
-            <input type="checkbox" checked={save.noMids}
+            <input type="checkbox" checked={save.noMids} disabled={!!duel}
               onChange={(e) => {
                 pulse(HAPTICS.ui);
                 setSave((prev) => ({ ...prev, noMids: e.target.checked }));
@@ -510,11 +642,11 @@ export function Scanner({ save, setSave, snapshots }: {
               }} />
             <span className="nm-text"><b>NO MIDS</b><small>every pull is a verdict</small></span>
           </label>
-          <label><input type="checkbox" checked={save.soundOn}
+          <label><input type="checkbox" checked={save.soundOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, soundOn: e.target.checked }))} /> Sound effects</label>
-          <label><input type="checkbox" checked={save.crowdOn}
+          <label><input type="checkbox" checked={save.crowdOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, crowdOn: e.target.checked }))} /> Crowd ambience</label>
-          <label><input type="checkbox" checked={save.hapticsOn}
+          <label><input type="checkbox" checked={save.hapticsOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
           <button className="reset" onClick={() => {
             // pull the power cord: wipe both sources' stats and every piece of
@@ -532,11 +664,19 @@ export function Scanner({ save, setSave, snapshots }: {
             setManualSheet(false);
             setVaultOpen(false);
             setShowSettings(false);
+            setDuel(null);
+            setDuelIntro(false);
+            duelPendingAdvance.current = false;
             setSave((s) => ({ ...s, stats: { m26: freshStats(), m27: freshStats() } }));
           }}>Reset everything</button>
         </div>
       )}
 
+      {duel && !duel.finished && (
+        <div className={`duel-chip p${duel.turn + 1}`} data-testid="duel-chip">
+          PLAYER {duel.turn + 1} · PULL {Math.min(duel.players[duel.turn].pulls + 1, DUEL_PULLS)}/{DUEL_PULLS}
+        </div>
+      )}
       <main className="stage-grid">
         <section className="stage">
           <div className="hero" data-testid="hero">
@@ -565,7 +705,9 @@ export function Scanner({ save, setSave, snapshots }: {
             onPointerCancel={onPointerUp}
             onContextMenu={(e) => e.preventDefault()}>
             <span>{phase === "charging" ? "RELEASE" : phase === "scanning" ? "SCANNING…" : "SCAN"}</span>
-            <small>{phase === "idle" ? "hold to charge" : ""}</small>
+            <small>{duel && !duel.finished
+              ? `P${duel.turn + 1} · pull ${Math.min(duel.players[duel.turn].pulls + 1, DUEL_PULLS)}`
+              : phase === "idle" ? "hold to charge" : ""}</small>
           </button>
         </section>
 
@@ -593,15 +735,63 @@ export function Scanner({ save, setSave, snapshots }: {
         </section>
       </main>
 
+      <canvas ref={weatherRef} className={`weather-canvas${reduceMotion ? "" : ""}`} aria-hidden />
       <canvas ref={burstRef} className="burst" aria-hidden />
 
       <nav className="chips" aria-label="Position filter">
         {Object.keys(GROUPS).map((g) => (
           <button key={g} className={save.group === g ? "on" : ""}
-            disabled={phase === "scanning" || phase === "charging"}
+            disabled={phase === "scanning" || phase === "charging" || !!duel}
             onClick={() => { pulse(HAPTICS.ui); setSave((s) => ({ ...s, group: g })); }}>{g}</button>
         ))}
       </nav>
+      {duelIntro && !duel && (
+        <div className="duel-overlay intro" data-testid="duel-intro" role="dialog">
+          <div className="duel-wash split" />
+          <div className="duel-title">LUCK DUEL</div>
+          <div className="duel-line">5 pulls each, alternating. Fate keeps score.</div>
+          <div className="duel-line dim">Tip: NO MIDS duels are savage. Duel locks the filters when it starts.</div>
+          <button className="duel-go" onClick={() => {
+            pulse(HAPTICS.duelStart);
+            synth.duelStart();
+            setDuelIntro(false);
+            setShowSettings(false);
+            setDuel(startDuel());
+          }}>PLAYER 1 — READY</button>
+          <button className="duel-cancel" onClick={() => setDuelIntro(false)}>never mind</button>
+        </div>
+      )}
+      {duel?.finished && (() => {
+        const v = duelVerdict(duel);
+        const [a, b] = duel.players;
+        return (
+          <div className={`duel-overlay finale w${v.winner ?? 0}`} data-testid="duel-finale" role="dialog">
+            <div className="duel-wash" />
+            <div className="duel-title">{v.line}</div>
+            <div className="duel-math">
+              P1 L {v.L[0].toFixed(1)} · best {a.best?.rating ?? "—"}
+              <span className="vs">VS</span>
+              P2 L {v.L[1].toFixed(1)} · best {b.best?.rating ?? "—"}
+            </div>
+            <div className="duel-shelf">
+              {[a, b].map((pl, i) => (
+                <div key={i} className={`duel-card p${i + 1}`}>
+                  <span className="dc-num">#{pl.best?.jersey ?? "—"}</span>
+                  <span className="dc-name">{pl.best?.name ?? "no pulls"}</span>
+                  <span className="dc-rating">{pl.best?.rating ?? ""}</span>
+                </div>
+              ))}
+            </div>
+            {v.duke !== null && v.dukeCheeks > 0 && (
+              <div className="duel-duke">DUKE OF CHEEKS: P{v.duke + 1} — {v.dukeCheeks} served</div>
+            )}
+            <div className="duel-actions">
+              <button onClick={() => { pulse(HAPTICS.duelStart); synth.duelStart(); setDuel(startDuel()); }}>REMATCH</button>
+              <button onClick={() => { pulse(HAPTICS.ui); setDuel(null); }}>DONE</button>
+            </div>
+          </div>
+        );
+      })()}
       {modeFlash && (
         <div className="mode-flash" data-testid="mode-flash" role="status">
           <div className="mf-wash gold" /><div className="mf-wash brown" />

@@ -181,6 +181,24 @@ class Synth {
     this.crowdGain.gain.setTargetAtTime(0.05, t0 + ms / 1000, 0.3);
   }
 
+  /** Scan release thump — layered under the tick engine. */
+  kick(): void {
+    this.blip(72, 0.16, "sine", 0.22);
+    this.noise(0.05, 0.12, 1800);
+  }
+
+  /** Duel open: gold blip, then brown. */
+  duelStart(): void {
+    this.blip(659.3, 0.18, "triangle", 0.16);
+    this.blip(392, 0.26, "triangle", 0.16, 0.14);
+  }
+
+  /** Pass-the-phone tick. */
+  turnTick(): void {
+    this.blip(523.3, 0.09, "sine", 0.1);
+    this.blip(392, 0.12, "sine", 0.09, 0.09);
+  }
+
   /** NO MIDS activation: low swell, gold-brown mood. */
   modeSwell(): void {
     this.blip(98, 0.9, "sawtooth", 0.08);
