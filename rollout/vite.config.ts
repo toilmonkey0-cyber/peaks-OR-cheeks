@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         // both snapshots inline into one JS chunk (~2.1MB) — keep it precached
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,

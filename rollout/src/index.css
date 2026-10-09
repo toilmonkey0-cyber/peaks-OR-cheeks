@@ -17,3 +17,47 @@ body {
 }
 
 button { font-family: inherit; }
+
+.update-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(14, 21, 38, 0.96);
+  border: 1px solid rgba(240, 168, 48, 0.5);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #e8edf7;
+  animation: toast-in 0.3s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+@keyframes toast-in {
+  from { transform: translate(-50%, 14px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+.update-toast button {
+  border: 1px solid #f0a830;
+  background: #f0a830;
+  color: #0a0e1a;
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.update-toast button.dismiss {
+  background: none;
+  border-color: #263352;
+  color: #7d8aa5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-toast { animation: none; }
+}
