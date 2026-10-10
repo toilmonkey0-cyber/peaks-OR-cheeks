@@ -66,6 +66,10 @@
   border-radius: 10px;
   display: block;
   border: 1px solid color-mix(in srgb, var(--tp) 30%, #1c1830);
+  /* pure-black art backgrounds vanish into the card (lighten: black adds nothing);
+     transparent PNGs are unaffected */
+  mix-blend-mode: lighten;
+  background: transparent;
 }
 .void-card.small.mascot .vc-art { border-radius: 7px; }
 .void-card.mascot .vc-name {
