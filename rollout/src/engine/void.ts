@@ -71,7 +71,38 @@ export const MASCOTS: Record<string, { name: string; archetype: MascotCard["arch
 /** Hand-made mascot art (relative paths — works under the Pages subpath).
  *  Missing entries fall back to procedural CreatureCanvas art. */
 export const MASCOT_ART: Record<string, string> = {
+  ARI: "mascots/ari.png",
+  ATL: "mascots/atl.png",
+  BAL: "mascots/bal.png",
   BUF: "mascots/buf.png",
+  CAR: "mascots/car.png",
+  CHI: "mascots/chi.png",
+  CIN: "mascots/cin.png",
+  CLE: "mascots/cle.png",
+  DAL: "mascots/dal.png",
+  DEN: "mascots/den.png",
+  DET: "mascots/det.png",
+  GB: "mascots/gb.png",
+  HOU: "mascots/hou.png",
+  IND: "mascots/ind.png",
+  JAX: "mascots/jax.png",
+  KC: "mascots/kc.png",
+  LA: "mascots/la.png",
+  LAC: "mascots/lac.png",
+  LV: "mascots/lv.png",
+  MIA: "mascots/mia.png",
+  MIN: "mascots/min.png",
+  NE: "mascots/ne.png",
+  NO: "mascots/no.png",
+  NYG: "mascots/nyg.png",
+  NYJ: "mascots/nyj.png",
+  PHI: "mascots/phi.png",
+  PIT: "mascots/pit.png",
+  SF: "mascots/sf.png",
+  SEA: "mascots/sea.png",
+  TB: "mascots/tb.png",
+  TEN: "mascots/ten.png",
+  WAS: "mascots/was.png",
 };
 
 export function makeGhost(seed: string): GhostCard {
