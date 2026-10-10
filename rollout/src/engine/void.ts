@@ -71,7 +71,7 @@ export const MASCOTS: Record<string, { name: string; archetype: MascotCard["arch
 /** Hand-made mascot art (relative paths — works under the Pages subpath).
  *  Missing entries fall back to procedural CreatureCanvas art. */
 export const MASCOT_ART: Record<string, string> = {
-  BUF: "mascots/buf.jpg",
+  BUF: "mascots/buf.png",
 };
 
 export function makeGhost(seed: string): GhostCard {
