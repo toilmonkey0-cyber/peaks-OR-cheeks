@@ -1,5 +1,5 @@
 import type { Team } from "@/data/schema";
-import type { VoidEntry } from "@/engine/void";
+import { MASCOT_ART, type VoidEntry } from "@/engine/void";
 import { CreatureCanvas } from "./CreatureCanvas";
 import { liftColor } from "@/util/color";
 import "./VoidCard.css";
@@ -13,8 +13,10 @@ export function VoidCard({ entry, team, small = false }: { entry: VoidEntry; tea
       <div className={`void-card mascot${small ? " small" : ""}`} data-testid="void-card"
         style={{ "--tp": tp, "--ts": ts } as React.CSSProperties}>
         <span className="vc-tag">HOUSE ORIGINAL</span>
-        <CreatureCanvas seed={entry.id} archetype={entry.archetype} primary={tp} secondary={ts}
-          scale={small ? 5 : 9} />
+        {MASCOT_ART[entry.id]
+          ? <img className="vc-art" src={MASCOT_ART[entry.id]} alt={entry.name} />
+          : <CreatureCanvas seed={entry.id} archetype={entry.archetype} primary={tp} secondary={ts}
+              scale={small ? 5 : 9} />}
         <div className="vc-name">{entry.name}</div>
         {!small && <div className="vc-meta">{entry.id} · THE HOUSE'S COLLECTION</div>}
       </div>

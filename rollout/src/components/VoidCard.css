@@ -61,6 +61,13 @@
 }
 .vc-stats span { font-size: 9px; letter-spacing: 0.14em; color: #6d5f96; font-weight: 700; }
 .vc-stats b { font-size: 16px; font-weight: 800; color: #e6e1f5; font-variant-numeric: tabular-nums; }
+.void-card.mascot .vc-art {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--tp) 30%, #1c1830);
+}
+.void-card.small.mascot .vc-art { border-radius: 7px; }
 .void-card.mascot .vc-name {
   font-size: 16px;
   font-weight: 900;

@@ -14,7 +14,7 @@ export default defineConfig({
         // both snapshots inline into one JS chunk (~2.1MB) — keep it precached
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
-      includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png', 'maskable-icon-512x512.png', 'icon.svg'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png', 'maskable-icon-512x512.png', 'icon.svg', 'mascots/*'],
       manifest: {
         name: 'Peaks or Cheeks',
         short_name: 'PeaksOrCheeks',
@@ -36,5 +36,6 @@ export default defineConfig({
   server: { fs: { allow: [".."] }, port: 5174 },
   preview: { port: 4174 },
   test: { environment: 'jsdom', setupFiles: ['./vitest.setup.ts'], globals: true,
-          exclude: [...configDefaults.exclude] },
+          exclude: [...configDefaults.exclude],
+          alias: { 'virtual:pwa-register': new URL('./src/test-pwa-stub.ts', import.meta.url).pathname } },
 })

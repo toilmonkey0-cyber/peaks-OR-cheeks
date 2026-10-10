@@ -37,7 +37,7 @@ export const MASCOTS: Record<string, { name: string; archetype: MascotCard["arch
   ARI: { name: "THE CARDINAL CODGER", archetype: "bird" },
   ATL: { name: "THE FALCON FLEDGLING", archetype: "bird" },
   BAL: { name: "THE HARBOR RAVEN", archetype: "bird" },
-  BUF: { name: "THE LAKE MONSTER", archetype: "reptile" },
+  BUF: { name: "THE BUFFALO WING", archetype: "reptile" },
   CAR: { name: "THE PANTHER PROWLER", archetype: "feline" },
   CHI: { name: "THE WINDY BEAR", archetype: "ursa" },
   CIN: { name: "THE RIVER STRIPE", archetype: "feline" },
@@ -66,6 +66,12 @@ export const MASCOTS: Record<string, { name: string; archetype: MascotCard["arch
   TB: { name: "THE GULF BUCCANEER", archetype: "canine" },
   TEN: { name: "THE RIVERBOAT CAT", archetype: "feline" },
   WAS: { name: "THE POTOMAC BOAR", archetype: "ursa" },
+};
+
+/** Hand-made mascot art (relative paths — works under the Pages subpath).
+ *  Missing entries fall back to procedural CreatureCanvas art. */
+export const MASCOT_ART: Record<string, string> = {
+  BUF: "mascots/buf.jpg",
 };
 
 export function makeGhost(seed: string): GhostCard {
