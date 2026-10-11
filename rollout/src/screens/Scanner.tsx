@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Card, Snapshot, Team } from "@/data/schema";
 import {
-  ATOMIC_CHEEKS_LINES, CELEBRATION_MS, CHEEKS_LINES, GROUPS, PEAK_LINES,
+  CELEBRATION_MS, CHEEKS_LINES, GROUPS,
   STREAK_LINES, TIER_ACCENT, VERDICT_BEAT_MS,
 } from "@/engine/config";
+import { chooseLine, detectVoice, generateHouseLine } from "@/engine/houseVoice";
 import { applyPoolFilters, filterPool, planScan, poolBadgeLabel, verdictOf, verdictViable, type PoolFilters, type ScanPlan, type Verdict } from "@/engine/draw";
 import { dealFromTheHouse, type VoidEntry } from "@/engine/void";
 import { loadVoidCollection, writeVoidCollection } from "@/engine/voidstore";
@@ -58,8 +59,11 @@ export function Scanner({ save, setSave, snapshots }: {
   const [copied, setCopied] = useState(false);
   const [chargeMs, setChargeMs] = useState(0);
   const [celebration, setCelebration] =
-    useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string } | null>(null);
+    useState<{ kind: Exclude<Verdict, null>; line: string; streakLine?: string; ai?: boolean } | null>(null);
   const celebrationToken = useRef(0);
+  // HOUSE VOICE: generated line for the pull in flight; replaced on every fire
+  const [voiceCapable] = useState(() => detectVoice());
+  const houseLineRef = useRef<{ line: string | null } | null>(null);
   const [manualSheet, setManualSheet] = useState(false);
   const [sheetKind, setSheetKind] = useState<"result" | "session">("result");
   const [vaultOpen, setVaultOpen] = useState(false);
@@ -584,6 +588,14 @@ export function Scanner({ save, setSave, snapshots }: {
     setPhase("scanning");
 
     const { card, delays } = plan;
+    // HOUSE VOICE: verdict is known from the plan, so generation runs during
+    // the sweep and is (usually) settled by the time the beat lands
+    const houseBox: { line: string | null } = { line: null };
+    houseLineRef.current = houseBox;
+    const vNow = verdictOf(card);
+    if (voiceCapable && save.voiceOn && vNow) {
+      generateHouseLine(card, vNow).then((l) => { houseBox.line = l; });
+    }
     const finalNameAt = reduceMotion ? Math.min(delays.name, 260) : delays.name;
 
     // stream ticks: density tracks the deceleration curve
@@ -664,15 +676,13 @@ export function Scanner({ save, setSave, snapshots }: {
         // the judgment beat: silence after the number lands, then everything at once
         synth.duckCrowd(VERDICT_BEAT_MS + 400);
         after(VERDICT_BEAT_MS, () => {
-          const pool = verdict === "peak" ? PEAK_LINES
-            : verdict === "atomic" ? ATOMIC_CHEEKS_LINES : CHEEKS_LINES;
-          const line = pool[Math.floor(Math.random() * pool.length)];
+          const { line, ai } = chooseLine(houseLineRef.current?.line ?? null, verdict);
           const streakLine = verdict !== "peak"
             ? STREAK_LINES[streak]
             : priorStreak >= 3 ? "Streak broken. Redemption." : undefined;
           const token = ++celebrationToken.current;
           setSheetKind("result");
-          setCelebration({ kind: verdict, line, streakLine });
+          setCelebration({ kind: verdict, line, streakLine, ai });
           synth.celebrate(verdict);
           pulse(HAPTICS[verdict === "peak" ? "peakJoy" : verdict]);
           if (!reduceMotion) {
@@ -689,7 +699,7 @@ export function Scanner({ save, setSave, snapshots }: {
         });
       }
     });
-  }, [after, burst, clearTimers, duel, phase, pool, pulse, reduceMotion, save, setSave, teams]);
+  }, [after, burst, clearTimers, duel, phase, pool, pulse, reduceMotion, save, setSave, teams, voiceCapable]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (phase === "scanning" || hl) return;
@@ -843,6 +853,10 @@ export function Scanner({ save, setSave, snapshots }: {
             onChange={(e) => setSave((s) => ({ ...s, crowdOn: e.target.checked }))} /> Crowd ambience</label>
           <label><input type="checkbox" checked={save.hapticsOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
+          {voiceCapable && (
+            <label><input type="checkbox" checked={save.voiceOn} disabled={!!duel}
+              onChange={(e) => setSave((s) => ({ ...s, voiceOn: e.target.checked }))} /> House voice (on-device AI)</label>
+          )}
           <button className="reset" onClick={() => {
             // pull the power cord: wipe both sources' stats and every piece of
             // scanner/UI state so the app restarts brand new (device prefs stay)
@@ -1070,7 +1084,7 @@ export function Scanner({ save, setSave, snapshots }: {
           <div className="stamp">
             {celebration.kind === "atomic" ? "ATOMIC CHEEKS." : celebration.kind === "cheeks" ? "CHEEKS." : "PEAK"}
           </div>
-          <div className="cline">{celebration.line}</div>
+          <div className="cline">{celebration.line}{celebration.ai && <span className="ai-mark" title="written on-device"> ∞</span>}</div>
           {celebration.streakLine && <div className="cline streak">{celebration.streakLine}</div>}
           <div className="skip-hint">tap to continue</div>
         </div>

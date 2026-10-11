@@ -29,6 +29,7 @@ export interface SaveState {
   soundOn: boolean;
   hapticsOn: boolean;
   crowdOn: boolean;
+  voiceOn: boolean; // house voice: on-device generated taglines (only shown where the API exists)
   group: string;
   noMids: boolean;
   noPeaks: boolean;
@@ -45,6 +46,7 @@ export const freshSave = (): SaveState => ({
   soundOn: true,
   hapticsOn: true,
   crowdOn: true,
+  voiceOn: true,
   group: "ALL",
   noMids: false,
   noPeaks: false,
@@ -89,6 +91,7 @@ export function loadSave(): SaveState {
       soundOn: parsed.soundOn ?? true,
       hapticsOn: parsed.hapticsOn ?? true,
       crowdOn: parsed.crowdOn ?? true,
+      voiceOn: parsed.voiceOn ?? true,
       group: parsed.group ?? "ALL",
       noMids: parsed.noMids ?? false,
       noPeaks: parsed.noPeaks ?? false,

@@ -781,6 +781,8 @@
   animation: celebrate-fade 0.3s ease-out 0.12s both;
 }
 .celebrate .cline.streak { color: #f0a830; }
+/* house voice: generated lines carry a faint ∞ so they read apart from pool lines */
+.celebrate .cline .ai-mark { opacity: 0.38; font-weight: 500; margin-left: 0.06em; }
 .celebrate .skip-hint {
   position: relative;
   margin-top: 16px;
