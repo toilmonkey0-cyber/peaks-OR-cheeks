@@ -69,7 +69,10 @@ describe("loop diagnostic", () => {
           counts.set(id, (counts.get(id) ?? 0) + 1);
         }
         const top2 = [...counts.values()].sort((a, b) => b - a).slice(0, 2).reduce((a, b) => a + b, 0);
-        expect(top2 / N).toBeLessThan(0.2); // a two-card loop would dominate 60%+
+        // cap by design allows 2 players × MAX_PLAYER_SHARE(8%) = 16% expected,
+        // with N=200 binomial noise ≈ ±4% — a real two-card loop runs 60%+, and
+        // even broken 2-card concentration (~35%) still trips 0.28 loudly
+        expect(top2 / N).toBeLessThan(0.28);
       }
     }
   });
