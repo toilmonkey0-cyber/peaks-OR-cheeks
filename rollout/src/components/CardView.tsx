@@ -1,5 +1,6 @@
 import { memo, useMemo } from "react";
 import type { Card, Team } from "@/data/schema";
+import { cachedCardArt, teamLogoUrl } from "@/engine/cardArt";
 import { hexToRgb, liftColor, relLuminance } from "@/util/color";
 import "./CardView.css";
 
@@ -8,6 +9,11 @@ function heightLabel(h: number | null): string {
   return `${Math.floor(h / 12)}'${h % 12}"`;
 }
 
+// art <img> that misbehaves hides itself; the card stays complete without it
+const hideBrokenImg = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = "hidden";
+};
+
 interface Props {
   card: Card;
   team?: Team;
@@ -15,10 +21,12 @@ interface Props {
   highlight?: boolean;
   /** Data-source tab (M26 / M27) shown on full-size cards. */
   tab?: string;
+  /** Real-art lanes (portrait / logo / ability icons). Default on. */
+  art?: boolean;
 }
 
 // memo: history rail re-renders on every scan; color lift is per-team work
-function CardViewBase({ card, team, size = "md", highlight = false, tab }: Props) {
+function CardViewBase({ card, team, size = "md", highlight = false, tab, art = true }: Props) {
   const { tp, ts, ink } = useMemo(() => {
     const p = liftColor(team?.primary ?? "#3b4a63");
     const s = liftColor(team?.secondary ?? "#25304a");
@@ -35,6 +43,10 @@ function CardViewBase({ card, team, size = "md", highlight = false, tab }: Props
   const number = String(card.jersey ?? 0);
   const city = (team?.city ?? "").toUpperCase();
   const nameScale = lastName.length > 11 ? 0.78 : lastName.length > 8 ? 0.9 : 1;
+  // sync read: Scanner preloads at fire() so the result card mounts warm;
+  // cold mounts (vault sm tiles) simply render the procedural face
+  const cardArt = art ? cachedCardArt(card) : null;
+  const logo = art ? teamLogoUrl(card.team) : null;
 
   if (size === "sm") {
     return (
@@ -55,10 +67,15 @@ function CardViewBase({ card, team, size = "md", highlight = false, tab }: Props
   return (
     <div className={`ro-frame tier-${card.tier} size-${size}${highlight ? " highlight" : ""}`}
       style={{ "--tp": tp, "--ts": ts, "--ink": ink } as React.CSSProperties}>
-      <div className="ro-card" data-testid="ro-card">
+      <div className={`ro-card tier-${card.tier}${logo ? " has-logo" : ""}`} data-testid="ro-card">
         <span className="tab tab-l">{tab ?? "PRO"}</span>
         <span className="tab tab-r">PLAYER CARD</span>
         {card.xfactor && <span className="xf-flag">X-FACTOR</span>}
+        {logo && (
+          <span className="ro-logo" aria-hidden>
+            <img src={logo} alt="" loading="lazy" onError={hideBrokenImg} />
+          </span>
+        )}
 
         <div className="ro-identity">
           <div className="ro-name">
@@ -76,8 +93,13 @@ function CardViewBase({ card, team, size = "md", highlight = false, tab }: Props
           <i>OVR</i>
         </div>
 
-        <div className="ro-number-zone" aria-label={`Jersey number ${number}`}>
+        <div className={`ro-number-zone${cardArt ? " has-art" : ""}`} aria-label={`Jersey number ${number}`}>
           <span className="hash">#</span><span className="digits">{number}</span>
+          {cardArt && (
+            <span className="ro-portrait">
+              <img src={cardArt.url} alt={card.fullName} onError={hideBrokenImg} />
+            </span>
+          )}
         </div>
 
         <ul className="ro-stats">
@@ -91,7 +113,14 @@ function CardViewBase({ card, team, size = "md", highlight = false, tab }: Props
         </ul>
 
         {card.abilities.length > 0 && (
-          <div className="ro-abilities">{card.abilities.map((a) => <span key={a}>{a}</span>)}</div>
+          <div className="ro-abilities">{card.abilities.map((a, i) => (
+            <span key={a}>
+              {art && card.abilityArt?.[i] && (
+                <img className="a-icon" src={card.abilityArt[i]} alt="" loading="lazy" onError={hideBrokenImg} />
+              )}
+              {a}
+            </span>
+          ))}</div>
         )}
         <div className="ro-meta">{meta}</div>
       </div>

@@ -6,6 +6,7 @@ import {
 } from "@/engine/config";
 import { chooseLine, detectVoice, generateHouseLine } from "@/engine/houseVoice";
 import { applyPoolFilters, filterPool, planScan, poolBadgeLabel, verdictOf, verdictViable, type PoolFilters, type ScanPlan, type Verdict } from "@/engine/draw";
+import { preloadCardArt } from "@/engine/cardArt";
 import { dealFromTheHouse, type VoidEntry } from "@/engine/void";
 import { loadVoidCollection, writeVoidCollection } from "@/engine/voidstore";
 import { VoidCard } from "@/components/VoidCard";
@@ -29,6 +30,10 @@ type Phase = "idle" | "charging" | "scanning" | "result";
 type SetSave = React.Dispatch<React.SetStateAction<SaveState>>;
 
 const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4);
+
+// the landing beat may hold this long waiting on portrait decode (cold pulls
+// only — cached art lands instantly; a miss at the cap lands without art)
+const ART_WAIT_CAP_MS = 900;
 
 function cardText(card: Card): string {
   const attrs = card.attributes.slice(0, 4).map((a) => `${a.label} ${a.value}`).join(" · ");
@@ -89,6 +94,10 @@ export function Scanner({ save, setSave, snapshots }: {
   const showGauge = sheetKind === "session";
 
   const planRef = useRef<ScanPlan | null>(null);
+  // a fire() token: the art wait makes the reveal async, so a late reveal must
+  // prove it still belongs to the current pull (rapid re-fire / reset / source
+  // switch all bump the token)
+  const fireToken = useRef(0);
   const timers = useRef<number[]>([]);
   const rafs = useRef<number[]>([]);
   const focusRef = useRef<HTMLCanvasElement>(null);
@@ -103,6 +112,7 @@ export function Scanner({ save, setSave, snapshots }: {
     if (s === source) return;
     pulse(HAPTICS.ui);
     clearTimers();
+    fireToken.current++;
     planRef.current = null;
     setResult(null);
     setNearFlash(null);
@@ -577,6 +587,7 @@ export function Scanner({ save, setSave, snapshots }: {
     const seed = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const plan = planScan(seed, pool);
     planRef.current = plan;
+    const token = ++fireToken.current;
     setResult(null);
     setNearFlash(null);
     setOvrDisplay(0);
@@ -588,6 +599,10 @@ export function Scanner({ save, setSave, snapshots }: {
     setPhase("scanning");
 
     const { card, delays } = plan;
+    // REAL ART: the card is chosen — start loading its portrait now so the
+    // reveal mounts warm (mutart hand-drops first, EA portrait as the base
+    // lane; resolves null instantly when no art exists anywhere)
+    const artReady = save.artOn ? preloadCardArt(card) : null;
     // HOUSE VOICE: verdict is known from the plan, so generation runs during
     // the sweep and is (usually) settled by the time the beat lands
     const houseBox: { line: string | null } = { line: null };
@@ -629,6 +644,11 @@ export function Scanner({ save, setSave, snapshots }: {
       rafs.current.push(requestAnimationFrame(tween));
     });
     after(finalNameAt + delays.ovr, () => {
+      // the landing beat waits (capped) for the portrait to be resident —
+      // anticipation is the point; then it fires whether or not art made it.
+      // Never hot-swaps: a miss renders the procedural card for THIS pull.
+      const land = () => {
+      if (fireToken.current !== token) return;
       setLocked((l) => ({ ...l, ovr: true }));
       setOvrDisplay(card.rating);
       synth.lock(3, true);
@@ -698,6 +718,12 @@ export function Scanner({ save, setSave, snapshots }: {
           });
         });
       }
+      };
+      if (!artReady || reduceMotion) { land(); return; }
+      let settled = false;
+      const settle = () => { if (settled) return; settled = true; land(); };
+      artReady.then(settle, settle);
+      window.setTimeout(settle, ART_WAIT_CAP_MS);
     });
   }, [after, burst, clearTimers, duel, phase, pool, pulse, reduceMotion, save, setSave, teams, voiceCapable]);
 
@@ -853,6 +879,8 @@ export function Scanner({ save, setSave, snapshots }: {
             onChange={(e) => setSave((s) => ({ ...s, crowdOn: e.target.checked }))} /> Crowd ambience</label>
           <label><input type="checkbox" checked={save.hapticsOn} disabled={!!duel}
             onChange={(e) => setSave((s) => ({ ...s, hapticsOn: e.target.checked }))} /> Haptics</label>
+          <label><input type="checkbox" checked={save.artOn} disabled={!!duel}
+            onChange={(e) => setSave((s) => ({ ...s, artOn: e.target.checked }))} /> Real player art</label>
           {voiceCapable && (
             <label><input type="checkbox" checked={save.voiceOn} disabled={!!duel}
               onChange={(e) => setSave((s) => ({ ...s, voiceOn: e.target.checked }))} /> House voice (on-device AI)</label>
@@ -863,6 +891,7 @@ export function Scanner({ save, setSave, snapshots }: {
             pulse(HAPTICS.ui);
             clearTimers();
             celebrationToken.current++;
+            fireToken.current++;
             planRef.current = null;
             setResult(null);
             setNearFlash(null);
@@ -938,7 +967,8 @@ export function Scanner({ save, setSave, snapshots }: {
           {showGauge && <LuckGauge stats={stats} />}
           {result ? (
             <div className={celebration && celebration.kind !== "peak" ? "result-col droop" : "result-col"}>
-              <CardView card={result} team={teams[result.team]} size="lg" highlight tab={source === "m26" ? "M26" : "M27"} />
+              <CardView card={result} team={teams[result.team]} size="lg" highlight
+                art={save.artOn} tab={source === "m26" ? "M26" : "M27"} />
               <div className="result-actions">
                 <button onClick={() => { pulse(HAPTICS.ui); setPhase("idle"); setManualSheet(false); planRef.current = null; }}>Scan again</button>
                 <button onClick={async () => {

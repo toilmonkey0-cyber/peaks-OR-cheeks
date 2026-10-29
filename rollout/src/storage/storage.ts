@@ -30,6 +30,7 @@ export interface SaveState {
   hapticsOn: boolean;
   crowdOn: boolean;
   voiceOn: boolean; // house voice: on-device generated taglines (only shown where the API exists)
+  artOn: boolean; // real player art lanes: EA portraits/logos/ability icons + mutart drops
   group: string;
   noMids: boolean;
   noPeaks: boolean;
@@ -47,6 +48,7 @@ export const freshSave = (): SaveState => ({
   hapticsOn: true,
   crowdOn: true,
   voiceOn: true,
+  artOn: true,
   group: "ALL",
   noMids: false,
   noPeaks: false,
@@ -92,6 +94,7 @@ export function loadSave(): SaveState {
       hapticsOn: parsed.hapticsOn ?? true,
       crowdOn: parsed.crowdOn ?? true,
       voiceOn: parsed.voiceOn ?? true,
+      artOn: parsed.artOn ?? true,
       group: parsed.group ?? "ALL",
       noMids: parsed.noMids ?? false,
       noPeaks: parsed.noPeaks ?? false,

@@ -234,8 +234,17 @@ def assemble(by_id: dict[int, dict], source_iteration: str, out_path: str) -> No
     players, xfactor_ids = [], []
     for ea_id, it in sorted(by_id.items()):
         abilities = it.get("playerAbilities") or []
-        xf = [a["label"] for a in abilities if (a.get("type") or {}).get("id") == "xFactor"]
-        labels = xf + [a["label"] for a in abilities if (a.get("type") or {}).get("id") != "xFactor"]
+        # xFactor abilities lead the label list; art urls ride the same order
+        ordered = ([a for a in abilities if (a.get("type") or {}).get("id") == "xFactor"]
+                   + [a for a in abilities if (a.get("type") or {}).get("id") != "xFactor"])
+        labels = [a["label"] for a in ordered]
+        xf_labels = [a["label"] for a in ordered
+                     if (a.get("type") or {}).get("id") == "xFactor"]
+        ability_art = [a.get("imageUrl") or "" for a in ordered[:2]]
+        # portrait asset ref "26/1370" — the file id is NOT the EA player id,
+        # so the URL must be captured per player (see docs/MUTART.md lane A)
+        pm = re.match(r".*/madden-nfl-(\d+)/portraits/([^/?]+)\.png", it.get("avatarUrl") or "")
+        portrait = f"{pm.group(1)}/{pm.group(2)}" if pm else None
         first, last = it.get("firstName") or "", it.get("lastName") or ""
         rating = int(it.get("overallRating") or 0)
         core = {}
@@ -260,12 +269,16 @@ def assemble(by_id: dict[int, dict], source_iteration: str, out_path: str) -> No
             "tier": tier_of(rating),
             "attributes": top_attributes(it.get("stats") or {}),
             "coreStats": core,
-            "xfactor": bool(xf),
+            "xfactor": bool(xf_labels),
             "abilities": labels[:2],
             "avatarSeed": f"ea-{ea_id}",
         }
+        if portrait:
+            card["portrait"] = portrait
+        if any(ability_art):
+            card["abilityArt"] = ability_art
         players.append(card)
-        if xf:
+        if xf_labels:
             xfactor_ids.append(card["playerId"])
 
     snapshot = {"builtAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

@@ -13,6 +13,29 @@ export default defineConfig({
       workbox: {
         // both snapshots inline into one JS chunk (~2.1MB) — keep it precached
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
+        // real-art lanes stream from EA/ESPN CDNs (nothing bundled): cache on
+        // first sight so portraits go offline after one viewing; hand-dropped
+        // mutart files are same-origin and cache the same way
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/(ratings-images-prod\.pulse\.ea\.com|a\.espncdn\.com|drop-assets\.ea\.com)\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "card-art",
+              expiration: { maxEntries: 900, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/mutart\/./,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "mutart",
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       includeAssets: ['favicon.svg', 'apple-touch-icon-180x180.png', 'maskable-icon-512x512.png', 'icon.svg', 'mascots/*'],
       manifest: {

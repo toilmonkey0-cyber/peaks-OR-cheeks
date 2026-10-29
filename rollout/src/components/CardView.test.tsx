@@ -30,10 +30,18 @@ describe("CardView", () => {
     expect(screen.getByText("X-FACTOR")).toBeInTheDocument();
   });
 
-  it("contains no canvas/avatar imagery — type and color only", () => {
-    const { container } = render(<CardView card={card()} team={team} size="lg" tab="M27" />);
+  it("procedural face stays type-and-color only with art off", () => {
+    const { container } = render(<CardView card={card()} team={team} size="lg" tab="M27" art={false} />);
     expect(container.querySelector("canvas")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("real art renders the team-logo chip; portrait waits for its preload", () => {
+    const { container } = render(<CardView card={card()} team={team} size="lg" />);
+    expect(container.querySelector(".ro-logo img")).not.toBeNull();
+    // sync mount without a warm art cache = procedural number band, no swap
+    expect(container.querySelector(".ro-portrait")).toBeNull();
+    expect(container.querySelector(".ro-number-zone.has-art")).toBeNull();
   });
 
   it("splits multi-word surnames onto the last line", () => {

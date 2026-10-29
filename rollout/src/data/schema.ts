@@ -25,6 +25,10 @@ export const CardSchema = z.object({
   xfactor: z.boolean(),
   abilities: z.array(z.string()).max(2),
   avatarSeed: z.string(),
+  // real-art lane A: EA portrait asset "26/1370" (game/file) + ability icon
+  // urls parallel to `abilities`; both absent on cards without art
+  portrait: z.string().regex(/^\d+\/[A-Za-z0-9._-]+$/).optional(),
+  abilityArt: z.array(z.string().url()).max(2).optional(),
 });
 export type Card = z.infer<typeof CardSchema>;
 

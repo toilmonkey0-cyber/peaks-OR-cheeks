@@ -7,3 +7,6 @@ node_modules/
 dist/
 app/test-results/
 app/playwright-report/
+
+# lane B real-MUT art: hand-saved card images, never committed (see docs/MUTART.md)
+rollout/public/mutart/
