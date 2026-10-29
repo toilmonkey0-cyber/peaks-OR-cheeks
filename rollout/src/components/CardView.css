@@ -158,12 +158,18 @@
 .ro-number-zone .hash { font-size: 48px; font-weight: 900; opacity: 0.55; margin-right: 6px; }
 .ro-number-zone .digits { font-size: 100px; font-weight: 900; letter-spacing: -0.01em; }
 
-/* real portrait rides the number band; the number dims behind it (single
-   instance, not an echo). Band keeps its height either way — art and no-art
-   cards share identical metrics. */
-.ro-number-zone.has-art { -webkit-text-stroke-width: 2px; }
+/* real portrait gets a proper card-art zone: ~45% of card height, centered,
+   ghost number behind it. The band owns its height in the art variant, so
+   nothing collides upward (name) or downward (stats) — the photo is the face
+   of the card, the number is its watermark. */
+.ro-number-zone.has-art {
+  -webkit-text-stroke-width: 2px;
+  min-height: 188px;
+  margin: 10px 0 14px;
+  align-items: center;
+}
 .ro-number-zone.has-art .hash,
-.ro-number-zone.has-art .digits { opacity: 0.3; text-shadow: none; }
+.ro-number-zone.has-art .digits { opacity: 0.26; text-shadow: none; }
 .ro-portrait {
   position: absolute;
   inset: 0;
@@ -172,13 +178,14 @@
   justify-content: center;
 }
 .ro-portrait img {
-  max-height: 92%;
-  max-width: 82%;
+  max-height: 176px;
+  max-width: 88%;
   object-fit: contain;
   filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.55))
           drop-shadow(0 0 18px color-mix(in srgb, var(--tp) 38%, transparent));
 }
-.size-md .ro-portrait img { max-height: 92%; }
+.size-md .ro-portrait img { max-height: 138px; }
+.size-md .ro-number-zone.has-art { min-height: 150px; }
 
 /* real team logo — container language of the OVR plaque, mirrors xf-flag;
    the identity block steps right so the corner flag never crowds the name */
