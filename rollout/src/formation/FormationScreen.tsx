@@ -9,6 +9,7 @@ import {
   spendPeak, startPull, type GameState, type Play, type PullPlan,
 } from "./engine/game";
 import { ActionStage, reduceMotion, type StageApi } from "./ActionStage";
+import { CONFIRMED_WAVE_STAGGER_MS, FLAT_DEAD_AIR_MS, FLAT_HOLD_MS, PEAK_QUARTER_PULLS } from "./feel";
 import { Field } from "./Field";
 import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } from "./sheets";
 import { teamViews } from "./teams";
@@ -49,6 +50,8 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [landing, setLanding] = useState<Set<string>>(new Set());
+  const [wave, setWave] = useState<Set<string>>(new Set());
+  const [enterTint, setEnterTint] = useState<number | null>(null);
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [sheet, setSheet] = useState<SheetState>(null);
   const sheetRef = useRef<SheetState>(null);
@@ -96,6 +99,71 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
 
   const close = () => setSheet(null);
   const done = () => { setSheet(null); bump(); };
+
+  const lock = (on: boolean) => { busyRef.current = on; setBusy(on); };
+
+  /** Center of one side's half of the field, in root coordinates (for the confetti). */
+  const sideCenter = (side: 0 | 1) => {
+    const root = rootRef.current?.getBoundingClientRect();
+    const f = rootRef.current?.querySelector('[data-testid="fm-field"]')?.getBoundingClientRect();
+    if (!root || !f) return { x: 0, y: 0 };
+    return { x: f.left - root.left + f.width / 2, y: f.top - root.top + f.height * (side ? 0.25 : 0.75) };
+  };
+
+  /** The call. Right = the house reviews it and the call stands (a spectacle). Wrong = "no." and nothing else. */
+  const callSide = async (side: 0 | 1, abbr: string) => {
+    const game = gameRef.current!;
+    const stage = stageRef.current;
+    if (busyRef.current || game.over || !stage) return;
+    setSheet(null);
+    synth.ensure();
+    lock(true);
+    const r = call(game, side, abbr);
+    bump();
+    const rm = reduceMotion();
+    if (r.correct) {
+      stage.stamp(0, "CONFIRMED.", "confirmed");
+      synth.fanfare();
+      haptic(HAPTICS.formationPeak);
+      setEnterTint(side);
+      await sleep(rm ? 0 : 300);
+      if (!alive.current) return;
+      const order = game.sides[side].lineup.map((_, i) => i);
+      if (side === 0) order.reverse(); // the offense wave ends on the QB
+      for (let k = 0; k < order.length; k++) {
+        const key = `${side}-${order[k]}`;
+        setWave((prev) => new Set(prev).add(key));
+        synth.waveTick(k);
+        if (k % 3 === 0) haptic(HAPTICS.formationWave);
+        await sleep(rm ? 0 : CONFIRMED_WAVE_STAGGER_MS);
+        if (!alive.current) return;
+      }
+      const c = sideCenter(side);
+      stage.burstAt(c.x, c.y, ["#fde68a", "#fbbf24", "#fff7d6"], false);
+      if (r.quarterEnded && game.over!.score <= PEAK_QUARTER_PULLS) { synth.celebrate("peak"); haptic(HAPTICS.peakJoy); }
+      await sleep(rm ? 0 : 640);
+    } else if (r.quarterEnded) {
+      // the last down: endings deserve theater even when wrong
+      stage.stamp(0, "TURNOVER", "cheeks");
+      synth.celebrate("cheeks");
+      haptic(HAPTICS.formationCheeks);
+      const c = sideCenter(side);
+      stage.burstAt(c.x, c.y, ["#b07a4c", "#7c4a21", "#8d99ab"], true);
+      await sleep(rm ? 200 : 1200);
+    } else {
+      // dead air, then the flattest possible answer
+      await sleep(rm ? 120 : FLAT_DEAD_AIR_MS);
+      if (!alive.current) return;
+      stage.stamp(1, "no.", "flat");
+      synth.thunk();
+      haptic(HAPTICS.formationFlat);
+      await sleep(rm ? 200 : FLAT_HOLD_MS);
+    }
+    if (!alive.current) return;
+    setWave(new Set());
+    setEnterTint(null);
+    lock(false);
+  };
 
   const onSlot = (side: 0 | 1, index: number) => {
     const s = g.sides[side].slots[index];
@@ -155,14 +223,14 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
             onClick={() => setSheet({ type: "plays", from: "bank" })}>◆ {g.chips}</button>
         </div>
         {sideBar(1)}
-        <Field game={g} teams={teamMap} landing={landing} enterTint={null} wave={new Set()} onSlot={onSlot} />
+        <Field game={g} teams={teamMap} landing={landing} enterTint={enterTint} wave={wave} onSlot={onSlot} />
         {sideBar(0)}
       </div>
 
       <ActionStage ref={stageRef} rootRef={rootRef} locked={busy || !!sheet || !!g.over || emptyPool}
         canCharge={canCharge} hint={hint} say={say} onRelease={(perfect) => { void onRelease(perfect); }} />
 
-      {sheet?.type === "call" && <CallSheet game={g} side={sheet.side} teams={teamMap} onClose={close} onPick={(abbr) => { call(g, sheet.side, abbr); done(); }} />}
+      {sheet?.type === "call" && <CallSheet game={g} side={sheet.side} teams={teamMap} onClose={close} onPick={(abbr) => { void callSide(sheet.side, abbr); }} />}
       {sheet?.type === "peak" && (
         <PeakSheet game={g} side={sheet.side} index={sheet.index}
           onPlay={() => { playPeak(g, sheet.side, sheet.index); done(); }}
@@ -172,7 +240,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       {sheet?.type === "plays" && <PlaysSheet game={g} title={sheet.from === "bank" ? "SPEND A CHIP" : "SPEND THE PEAK"} onPick={onPlay} onClose={close} />}
       {sheet?.type === "detail" && <DetailSheet game={g} side={sheet.side} index={sheet.index} onClose={close} />}
       {sheet?.type === "tape" && <TapeSheet log={g.log} onClose={close} />}
-      {!sheet && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); bump(); }} />}
+      {!sheet && !busy && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); bump(); }} />}
     </div>
   );
 }

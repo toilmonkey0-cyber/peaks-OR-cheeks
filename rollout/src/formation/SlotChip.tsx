@@ -10,6 +10,7 @@ export interface SlotChipProps {
   teamColor?: string;
   filmable: boolean;
   landing: boolean;
+  wave: boolean; // mid CONFIRMED wave
   x: number;
   y: number;
   onTap: (side: 0 | 1, index: number) => void;
@@ -17,7 +18,7 @@ export interface SlotChipProps {
 
 const SIDE = ["OFFENSE", "DEFENSE"] as const;
 
-export function SlotChip({ side, index, player, slot, known, teamColor, filmable, landing, x, y, onTap }: SlotChipProps) {
+export function SlotChip({ side, index, player, slot, known, teamColor, filmable, landing, wave, x, y, onTap }: SlotChipProps) {
   const cls = ["fm-chip"];
   let label = `${SIDE[side]} ${player.label}`;
   let tappable = false;
@@ -57,6 +58,7 @@ export function SlotChip({ side, index, player, slot, known, teamColor, filmable
   if (known) cls.push("known");
   if (filmable) cls.push("filmable");
   if (landing) cls.push("landing");
+  if (wave) cls.push("wave");
 
   const style = { left: `${x}%`, top: `${y}%`, ...(known && teamColor ? { ["--team" as string]: teamColor } : {}) } as React.CSSProperties;
   const content = (<><span className="pos">{player.label}</span>{body}</>);

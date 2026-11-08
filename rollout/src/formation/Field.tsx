@@ -48,7 +48,8 @@ export function Field({ game, teams, landing, enterTint, wave, onSlot }: FieldPr
                   known={known}
                   teamColor={t?.color}
                   filmable={game.film && !game.over && !slot.fd && !slot.sealed && slot.layer >= 1 && slot.layer < 3}
-                  landing={landing.has(k) || wave.has(k)}
+                  landing={landing.has(k)}
+                  wave={wave.has(k)}
                   x={x}
                   y={y}
                   onTap={onSlot}

@@ -362,8 +362,8 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
               <span ref={subRef} className="fm-sub">HOLD ME</span>
             </div>
           </div>
-          <div ref={stampRefs[0]} className="fm-stamp s1" aria-hidden="true" />
-          <div ref={stampRefs[1]} className="fm-stamp s2" aria-hidden="true" />
+          <div ref={stampRefs[0]} className="fm-stamp s1" data-testid="stamp-0" aria-hidden="true" />
+          <div ref={stampRefs[1]} className="fm-stamp s2" data-testid="stamp-1" aria-hidden="true" />
         </div>
         <div className="fm-say" aria-live="polite">{say}</div>
         <div className="fm-spinrow">
