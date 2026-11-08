@@ -1,11 +1,14 @@
 import { useMemo, useReducer, useRef, useState } from "react";
+import { synth } from "@/audio/synth";
+import { haptic, HAPTICS } from "@/haptics/haptics";
 import type { Team } from "@/data/schema";
 import { makeRng } from "@/engine/rng";
 import type { TeamLineups } from "./engine/lineups";
 import {
-  applyPlay, buyScheme, call, createGame, filmSlot, nextQuarter, playPeak, spendPeak,
-  type GameState, type Play,
+  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, nextQuarter, planPull, playPeak,
+  spendPeak, startPull, type GameState, type Play, type PullPlan,
 } from "./engine/game";
+import { ActionStage, reduceMotion, type StageApi } from "./ActionStage";
 import { Field } from "./Field";
 import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } from "./sheets";
 import { teamViews } from "./teams";
@@ -15,9 +18,10 @@ export interface FormationScreenProps {
   lineups: Record<string, TeamLineups>;
   teams: Team[];
   onExit: () => void;
-  /** test hooks: deterministic teams + seed */
+  /** test hooks: deterministic teams + seed, or a whole game state (resume reuses this) */
   initialTeams?: [string, string];
   seed?: string;
+  initialGame?: GameState;
 }
 
 type SheetState =
@@ -31,14 +35,58 @@ type SheetState =
 
 const newSeed = () => "fm-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
 
-export function FormationScreen({ lineups, teams, onExit, initialTeams, seed }: FormationScreenProps) {
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, initialGame }: FormationScreenProps) {
   const teamMap = useMemo(() => teamViews(teams), [teams]);
   const seedRef = useRef(seed ?? newSeed());
   const gameRef = useRef<GameState | null>(null);
-  if (!gameRef.current) gameRef.current = createGame(seedRef.current, lineups, initialTeams);
+  if (!gameRef.current) gameRef.current = initialGame ?? createGame(seedRef.current, lineups, initialTeams);
   const g = gameRef.current;
+  const rngRef = useRef(makeRng(seedRef.current + ":pulls"));
+  const rootRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<StageApi>(null);
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [landing, setLanding] = useState<Set<string>>(new Set());
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const sheetRef = useRef<SheetState>(null);
+  sheetRef.current = sheet;
+  const emptyPool = !g.over && eligible(g).length === 0;
+  const canCharge = () => !busyRef.current && !sheetRef.current && !gameRef.current!.over && eligible(gameRef.current!).length > 0;
+
+  /** THE PULL, after the release: plan → reel → verdict → flight → commit (game state changes only on landing). */
+  const onRelease = async (perfect: boolean) => {
+    const stage = stageRef.current;
+    const game = gameRef.current!;
+    if (busyRef.current || game.over || !stage) return;
+    busyRef.current = true;
+    setBusy(true);
+    if (perfect) game.perfects++;
+    const n = startPull(game);
+    const plans: PullPlan[] = [];
+    for (let k = 0; k < n; k++) { const p = planPull(game, rngRef.current); if (p) plans.push(p); }
+    bump();
+    for (let k = 0; k < plans.length; k++) {
+      const p = plans[k];
+      const label = (p.side ? "DEF " : "OFF ") + game.sides[p.side].lineup[p.index].label;
+      await stage.reel(p, label, k === 0);
+      await stage.verdict(p, label);
+      const target = rootRef.current?.querySelector(`[data-testid="slot-${p.side}-${p.index}"]`) ?? null;
+      await stage.fly(p, label, target);
+      commitPull(game, p);
+      setLanding(new Set([`${p.side}-${p.index}`]));
+      bump();
+      synth.landThud();
+      haptic(HAPTICS.formationLand);
+      await sleep(reduceMotion() ? 30 : 200);
+    }
+    stage.reset();
+    setLanding(new Set());
+    busyRef.current = false;
+    setBusy(false);
+  };
 
   const close = () => setSheet(null);
   const done = () => { setSheet(null); bump(); };
@@ -61,10 +109,12 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed }: 
   const onNewGame = () => {
     seedRef.current = newSeed();
     gameRef.current = createGame(seedRef.current, lineups);
+    rngRef.current = makeRng(seedRef.current + ":pulls");
     done();
   };
 
-  const say = g.log[0]?.text ?? `Q${g.quarter}: two teams are hiding. Hold the card.`;
+  const say = emptyPool ? "Every clue is out. Make the call." : g.log[0]?.text ?? `Q${g.quarter}: two teams are hiding. Hold the card.`;
+  const hint = g.noHuddle ? "NO-HUDDLE ×2" : g.film ? "FILM: TAP A SLOT" : "RELEASE TO PULL";
   const sideBar = (side: 0 | 1) => {
     const S = g.sides[side];
     const known = S.solved || g.over !== null;
@@ -78,14 +128,14 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed }: 
           : <span className="who">?</span>}
         {side === 1 && <button type="button" className="fm-tape" onClick={() => setSheet({ type: "tape" })}>TAPE</button>}
         {!known && (
-          <button type="button" className="fm-call" aria-label={`CALL the ${label}`} onClick={() => setSheet({ type: "call", side })}>CALL</button>
+          <button type="button" className="fm-call" aria-label={`CALL the ${label}`} disabled={busy} onClick={() => setSheet({ type: "call", side })}>CALL</button>
         )}
       </div>
     );
   };
 
   return (
-    <div className="fm" data-testid="formation-screen">
+    <div ref={rootRef} className="fm" data-testid="formation-screen">
       <div className="fm-top">
         <div className="fm-hud">
           <button type="button" className="fm-back" aria-label="Back to the scanner" onClick={onExit}>‹</button>
@@ -99,22 +149,12 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed }: 
             onClick={() => setSheet({ type: "plays", from: "bank" })}>◆ {g.chips}</button>
         </div>
         {sideBar(1)}
-        <Field game={g} teams={teamMap} landing={new Set()} enterTint={null} wave={new Set()} onSlot={onSlot} />
+        <Field game={g} teams={teamMap} landing={landing} enterTint={null} wave={new Set()} onSlot={onSlot} />
         {sideBar(0)}
       </div>
 
-      <div className="fm-action">
-        <div className="fm-bg" aria-hidden="true" />
-        <div className="fm-stage">
-          <div className="fm-card idle" aria-label="The deck. Press and hold to charge, release to pull.">
-            <div className="fm-face back"><span className="fm-lbl">THE DECK</span><span className="fm-big">?</span><span className="fm-sub">HOLD ME</span></div>
-          </div>
-        </div>
-        <div className="fm-say" aria-live="polite">{say}</div>
-        <div className="fm-spinrow">
-          <button type="button" className="fm-spin" data-testid="hold-btn" disabled={!!g.over}>HOLD<small>RELEASE TO PULL</small></button>
-        </div>
-      </div>
+      <ActionStage ref={stageRef} rootRef={rootRef} locked={busy || !!sheet || !!g.over || emptyPool}
+        canCharge={canCharge} hint={hint} say={say} onRelease={(perfect) => { void onRelease(perfect); }} />
 
       {sheet?.type === "call" && <CallSheet game={g} side={sheet.side} teams={teamMap} onClose={close} onPick={(abbr) => { call(g, sheet.side, abbr); done(); }} />}
       {sheet?.type === "peak" && (

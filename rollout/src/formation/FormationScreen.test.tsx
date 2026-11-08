@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadSnapshot } from "@/data/snapshot";
 import { App } from "@/App";
 import { buildLineups } from "./engine/lineups";
+import { createGame } from "./engine/game";
 import { FormationScreen } from "./FormationScreen";
 
 const snap = loadSnapshot("m27");
@@ -68,5 +69,63 @@ describe("the door", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to the scanner" }));
     expect(screen.queryByTestId("formation-screen")).toBeNull();
     expect(screen.getByTestId("scan-btn")).toBeInTheDocument();
+  });
+});
+
+describe("THE PULL", () => {
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    // reduced motion: the pull keeps its sound/haptics but skips growth, particles, and flight
+    window.matchMedia = ((q: string) => ({
+      matches: q.includes("reduce"), media: q, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => { window.matchMedia = realMatchMedia; });
+
+  const revealed = () => screen.getAllByTestId(/^slot-/).filter((el) => /number \d+|face-down PEAK/.test(el.getAttribute("aria-label") ?? "")).length;
+  const spins = () => screen.getByText("SPINS").parentElement!.textContent;
+
+  it("hold + release pulls exactly one clue onto the field and counts one spin", async () => {
+    mount();
+    expect(revealed()).toBe(0);
+    fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+    fireEvent.pointerUp(window);
+    await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
+    expect(spins()).toBe("SPINS1");
+  });
+
+  it("holding the card itself also pulls", async () => {
+    mount();
+    fireEvent.pointerDown(screen.getByTestId("deck-card"));
+    fireEvent.pointerUp(window);
+    await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
+  });
+
+  it("keyboard: Space down + up on HOLD pulls", async () => {
+    mount();
+    const btn = screen.getByTestId("hold-btn");
+    fireEvent.keyDown(btn, { key: " " });
+    fireEvent.keyUp(btn, { key: " " });
+    await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
+  });
+
+  it("every clue out with downs left: HOLD is locked and the house says make the call", () => {
+    const g = createGame("x", L, ["KC", "BUF"]);
+    for (const S of g.sides) S.slots.forEach((s) => { s.layer = 3; });
+    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} initialGame={g} />);
+    expect(screen.getByTestId("hold-btn")).toBeDisabled();
+    expect(screen.getByText(/make the call/i)).toBeInTheDocument();
+  });
+
+  it("a second hold while a pull is landing is ignored (one spin, one card)", async () => {
+    mount();
+    const btn = screen.getByTestId("hold-btn");
+    fireEvent.pointerDown(btn);
+    fireEvent.pointerUp(window);
+    act(() => { fireEvent.pointerDown(btn); fireEvent.pointerUp(window); });
+    await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(spins()).toBe("SPINS1");
   });
 });
