@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { makeRng } from "@/engine/rng";
 import { loadSnapshot } from "@/data/snapshot";
 import { buildLineups } from "./lineups";
-import { commitPull, createGame, eligible, planPull, type GameState } from "./game";
+import {
+  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, finalScore, nextQuarter,
+  planPull, playPeak, SCHEME_PRICES, spendPeak, startPull, TURNOVER_PENALTY, weightOf, type GameState,
+} from "./game";
 
 const L = buildLineups(loadSnapshot("m27"));
 const g0 = () => createGame("t", L, ["KC", "BUF"]);
@@ -108,5 +111,180 @@ describe("pulls", () => {
     expect(g.log[0].text).toBe(p2.toast);
     expect(g.log[1].text).toBe(p.toast);
     expect(g.sides.flatMap((s) => s.slots).some((s) => s.pending)).toBe(false);
+  });
+});
+
+/** Pull until a face-down PEAK lands (KC offense carries two PEAK linemen; BUF's QB is a PEAK). */
+function pullUntilFd(g: GameState): { side: 0 | 1; index: number } {
+  for (let i = 0; i < 80; i++) {
+    const p = planPull(g, makeRng("fd" + i));
+    if (!p) break;
+    commitPull(g, p);
+    if (p.kind === "fd") return { side: p.side, index: p.index };
+  }
+  throw new Error("no face-down PEAK surfaced");
+}
+
+describe("calls + downs", () => {
+  it("a wrong call burns one shared down and crosses that team out on that side only", () => {
+    const g = g0();
+    const r = call(g, 0, "NE");
+    expect(r).toEqual({ correct: false, quarterEnded: false, banked: 0 });
+    expect(g.downs).toBe(3);
+    expect(g.sides[0].out).toEqual(["NE"]);
+    expect(g.sides[1].out).toEqual([]);
+  });
+
+  it("a correct call solves the side, ghosts its hidden numbers, and drops it out of pulls", () => {
+    const g = g0();
+    expect(call(g, 0, "KC").correct).toBe(true);
+    expect(g.sides[0].solved).toBe(true);
+    expect(g.sides[0].slots.every((s) => s.ghost || s.layer > 0 || s.fd)).toBe(true);
+    expect(eligible(g).every((e) => e.side === 1)).toBe(true);
+  });
+
+  it("four wrong calls = turnover: penalty score, face-down PEAKs bank as chips", () => {
+    const g = g0();
+    const fd = pullUntilFd(g);
+    for (const t of ["NE", "ARI", "ATL", "CAR"]) call(g, 0, t);
+    expect(g.over).toEqual({ kind: "turnover", score: TURNOVER_PENALTY, banked: 1 });
+    expect(g.chips).toBe(1);
+    expect(g.sides[fd.side].slots[fd.index].fd).toBe(false);
+  });
+
+  it("both sides called right ends the quarter with score = pulls taken", () => {
+    const g = g0();
+    for (let i = 0; i < 5; i++) { startPull(g); commitPull(g, planPull(g, makeRng("s" + i))!); }
+    call(g, 0, "KC");
+    const r = call(g, 1, "BUF");
+    expect(r.quarterEnded).toBe(true);
+    expect(g.over).toEqual({ kind: "solved", score: 5, banked: expect.any(Number) });
+    expect(g.total).toBe(5);
+  });
+
+  it("a turnover always scores worse than ANY solve (more than the max 22x3 pulls)", () => {
+    expect(TURNOVER_PENALTY).toBeGreaterThan(22 * 3);
+  });
+
+  it("with 31 teams crossed out, calling the one live team still resolves", () => {
+    const g = g0();
+    g.sides[0].out = Object.keys(L).filter((t) => t !== "KC");
+    expect(g.sides[0].out.length).toBe(31);
+    expect(call(g, 0, "KC").correct).toBe(true);
+  });
+});
+
+describe("pull counting", () => {
+  it("one spin = one pull; NO-HUDDLE deals two cards for that one pull, then wears off", () => {
+    const g = g0();
+    expect(startPull(g)).toBe(1);
+    g.noHuddle = true;
+    expect(startPull(g)).toBe(2);
+    expect(g.noHuddle).toBe(false);
+    expect(startPull(g)).toBe(1);
+    expect(g.pulls).toBe(3);
+  });
+});
+
+describe("PEAKs, chips, plays", () => {
+  it("PLAY flips a face-down PEAK to number + initials", () => {
+    const g = g0();
+    const fd = pullUntilFd(g);
+    playPeak(g, fd.side, fd.index);
+    const s = g.sides[fd.side].slots[fd.index];
+    expect([s.fd, s.layer]).toEqual([false, 2]);
+  });
+
+  it("SPEND seals the PEAK's slot and applies the play without touching banked chips", () => {
+    const g = g0();
+    const fd = pullUntilFd(g);
+    g.chips = 2;
+    expect(spendPeak(g, fd.side, fd.index, "nohuddle")).toBe(true);
+    const s = g.sides[fd.side].slots[fd.index];
+    expect([s.fd, s.sealed]).toEqual([false, true]);
+    expect(g.noHuddle).toBe(true);
+    expect(g.chips).toBe(2);
+  });
+
+  it("plays from the bank cost one chip and fail when broke", () => {
+    const g = g0();
+    expect(applyPlay(g, "nohuddle")).toBe(false);
+    g.chips = 1;
+    expect(applyPlay(g, "nohuddle")).toBe(true);
+    expect(g.chips).toBe(0);
+  });
+
+  it("CHALLENGE FLAG restores exactly one down per wrong call", () => {
+    const g = g0();
+    g.chips = 3;
+    expect(applyPlay(g, "flag")).toBe(false); // nothing to challenge, no chip spent
+    expect(g.chips).toBe(3);
+    call(g, 0, "NE");
+    expect(applyPlay(g, "flag")).toBe(true);
+    expect(g.downs).toBe(4);
+    expect(applyPlay(g, "flag")).toBe(false);
+    expect(g.chips).toBe(2);
+  });
+
+  it("FILM STUDY digs a lit slot to its initials, once", () => {
+    const g = g0();
+    const p = planPull(g, makeRng("film"))!;
+    commitPull(g, p);
+    if (p.kind === "fd") playPeak(g, p.side, p.index);
+    g.chips = 1;
+    expect(applyPlay(g, "film")).toBe(true);
+    const before = g.sides[p.side].slots[p.index].layer;
+    expect(filmSlot(g, p.side, p.index)).toBe(true);
+    expect(g.sides[p.side].slots[p.index].layer).toBe(Math.min(3, Math.max(2, before + 1)));
+    expect(g.film).toBe(false);
+    expect(filmSlot(g, p.side, p.index)).toBe(false);
+  });
+});
+
+describe("schemes + scoring", () => {
+  const halftime = (g: GameState) => { g.quarter = 2; g.over = { kind: "solved", score: 9, banked: 0 }; };
+
+  it("schemes sell only at halftime (Q2 final whistle), at their price, once each", () => {
+    const g = g0();
+    g.chips = 5;
+    expect(buyScheme(g, "starPower")).toBe(false); // Q1 in progress
+    halftime(g);
+    expect(buyScheme(g, "starPower")).toBe(true);
+    expect(g.chips).toBe(5 - SCHEME_PRICES.starPower);
+    expect(buyScheme(g, "starPower")).toBe(false); // already owned
+    g.chips = SCHEME_PRICES.scouting - 1;
+    expect(buyScheme(g, "scouting")).toBe(false); // can't afford
+  });
+
+  it("STAR POWER doubles the jackpot slots' weight", () => {
+    const g = g0();
+    expect(weightOf(g, 0, 0)).toBe(1); // KC QB
+    g.schemes.starPower = true;
+    expect(weightOf(g, 0, 0)).toBe(2);
+    expect(weightOf(g, 0, 6)).toBe(3); // LT unchanged
+  });
+
+  it("final score = quarters played minus unspent chips", () => {
+    const g = g0();
+    g.total = 40;
+    g.chips = 5;
+    expect(finalScore(g)).toBe(35);
+  });
+
+  it("next quarter deals two new different teams with fresh downs; SCOUTING crosses 3 teams not in the game", () => {
+    const g = g0();
+    g.schemes.scouting = true;
+    g.over = { kind: "solved", score: 7, banked: 0 };
+    g.pulls = 7;
+    nextQuarter(g, L, makeRng("q2"));
+    expect(g.quarter).toBe(2);
+    expect(g.over).toBeNull();
+    expect([g.downs, g.pulls, g.flags]).toEqual([4, 0, 0]);
+    const [o, d] = g.sides;
+    expect(o.team).not.toBe(d.team);
+    expect(o.out.length).toBe(3);
+    expect(d.out).toEqual(o.out);
+    expect(o.out).not.toContain(o.team);
+    expect(o.out).not.toContain(d.team);
   });
 });
