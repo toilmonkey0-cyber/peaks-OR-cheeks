@@ -1,5 +1,5 @@
 import { makeRng } from "@/engine/rng";
-import type { SlotClass, SlotPlayer, TeamLineups } from "./lineups";
+import type { SlotPlayer, TeamLineups } from "./lineups";
 
 export type Layer = 0 | 1 | 2 | 3;
 export interface SlotState { layer: Layer; fd: boolean; sealed: boolean; ghost: boolean; pending: boolean }
@@ -33,11 +33,8 @@ export interface GameState {
   log: LogEntry[];
 }
 
-export const WEIGHTS: Record<SlotClass, number> = { common: 3, skill: 2, jack: 1 };
-export const TURNOVER_PENALTY = 70;
-export const PEAK_QUARTER_PULLS = 8;
-export const SCOUTING_CROSSES = 3;
-export const SCHEME_PRICES = { starPower: 2, scouting: 3 } as const;
+import { PEAK_QUARTER_PULLS, SCHEME_PRICES, SCOUTING_CROSSES, TURNOVER_PENALTY, WEIGHTS } from "../feel";
+export { PEAK_QUARTER_PULLS, SCHEME_PRICES, SCOUTING_CROSSES, TURNOVER_PENALTY, WEIGHTS };
 export type Play = "nohuddle" | "film" | "flag";
 export type Scheme = keyof typeof SCHEME_PRICES;
 

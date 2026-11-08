@@ -2,7 +2,9 @@ export type HapticName =
   | "tickLight" | "charge0" | "charge1" | "charge2" | "charge3"
   | "lock1" | "lock2" | "lock3" | "lockFinal"
   | "nearMiss" | "common" | "rare" | "elite" | "legend" | "xfactor"
-  | "peakJoy" | "cheeks" | "atomic" | "kick" | "duelStart" | "turn" | "void" | "ui";
+  | "peakJoy" | "cheeks" | "atomic" | "kick" | "duelStart" | "turn" | "void" | "ui"
+  | "formationTick" | "formationLand" | "formationPerfect" | "formationFlat" | "formationWave"
+  | "formationPeak" | "formationCheeks";
 
 // ms patterns — the whole vocabulary in one table
 export const HAPTICS: Record<HapticName, number[]> = {
@@ -29,6 +31,14 @@ export const HAPTICS: Record<HapticName, number[]> = {
   turn: [10, 30, 10],
   void: [40, 40, 40, 40, 40, 40, 220],
   ui: [8],
+  // FORMATION
+  formationTick: [8],
+  formationLand: [35],
+  formationPerfect: [10, 30, 10, 30, 80],
+  formationFlat: [28],
+  formationWave: [8],
+  formationPeak: [20, 40, 20, 40, 90],
+  formationCheeks: [160],
 };
 
 /** Charge-hold escalation by elapsed ms (0..3). */

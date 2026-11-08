@@ -13,6 +13,7 @@ class Synth {
   private crowdSource: AudioBufferSourceNode | null = null;
   private chargeOsc: OscillatorNode | null = null;
   private chargeGain: GainNode | null = null;
+  private riser: { osc: OscillatorNode; lp: BiquadFilterNode; gain: GainNode } | null = null;
   private enabled = true;
   private crowdWanted = false;
 
@@ -179,6 +180,85 @@ class Synth {
     const t0 = this.t;
     this.crowdGain.gain.setTargetAtTime(0.004, t0, 0.05);
     this.crowdGain.gain.setTargetAtTime(0.05, t0 + ms / 1000, 0.3);
+  }
+
+  // ── FORMATION voices ──────────────────────────────────────────────────────
+  /** The breathing riser under a FORMATION charge. */
+  formationRiserStart(): void {
+    if (!this.ctx || !this.master || !this.enabled || this.riser) return;
+    const osc = this.ctx.createOscillator();
+    const lp = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.value = 90;
+    lp.type = "lowpass";
+    lp.frequency.value = 400;
+    gain.gain.value = 0.0001;
+    gain.gain.setTargetAtTime(0.045, this.t, 0.08);
+    osc.connect(lp).connect(gain).connect(this.master);
+    osc.start();
+    this.riser = { osc, lp, gain };
+  }
+
+  /** level 0..1 climbs pitch + brightness; breath -1..1 swells the gain with each inhale. */
+  formationRiserUpdate(level: number, breath: number): void {
+    if (!this.riser || !this.ctx) return;
+    const t = this.t;
+    this.riser.osc.frequency.setTargetAtTime(90 * Math.pow(4, level), t, 0.05);
+    this.riser.lp.frequency.setTargetAtTime(400 + level * 2600, t, 0.05);
+    this.riser.gain.gain.setTargetAtTime(0.03 + 0.035 * level * (0.55 + 0.45 * Math.max(0, breath)), t, 0.03);
+  }
+
+  formationRiserStop(): void {
+    if (!this.riser || !this.ctx) { this.riser = null; return; }
+    const { osc, gain } = this.riser;
+    const t = this.t;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setTargetAtTime(0.0001, t, 0.015);
+    osc.stop(t + 0.12);
+    this.riser = null;
+  }
+
+  /** CONFIRMED wave: each slot pops a step higher. */
+  waveTick(i: number): void {
+    this.blip(480 + i * 42, 0.09, "triangle", 0.07);
+  }
+
+  /** The call stands. */
+  fanfare(): void {
+    [523, 659, 784, 1047].forEach((f, i) => this.blip(f, 0.34, "triangle", 0.09, i * 0.09));
+    this.blip(1568, 0.5, "triangle", 0.06, 0.36);
+    this.noise(0.3, 0.02, 5000);
+  }
+
+  /** The wrong call: one dull thunk, nothing else. */
+  thunk(): void {
+    this.blip(105, 0.08, "square", 0.05);
+    this.blip(70, 0.1, "sine", 0.09, 0.03);
+  }
+
+  /** The card leaving the stage. */
+  whoosh(): void {
+    this.noise(0.32, 0.05, 1400);
+    this.blip(300, 0.36, "sawtooth", 0.03);
+  }
+
+  /** The card landing in its slot. */
+  landThud(): void {
+    this.blip(90, 0.16, "sine", 0.28);
+    this.blip(55, 0.2, "sine", 0.2, 0.02);
+  }
+
+  /** Static on the charge past halfway. */
+  crackle(): void {
+    this.noise(0.025 + Math.random() * 0.03, 0.03, 2500);
+  }
+
+  /** Top-of-breath release. */
+  perfect(): void {
+    this.blip(1320, 0.18, "triangle", 0.08);
+    this.blip(1760, 0.2, "triangle", 0.08, 0.06);
+    this.blip(2640, 0.35, "triangle", 0.07, 0.12);
   }
 
   /** Scan release thump — layered under the tick engine. */
