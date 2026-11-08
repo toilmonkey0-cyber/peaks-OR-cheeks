@@ -37,6 +37,11 @@
   gap: 12px;
   padding: 4px 4px 6px;
 }
+/* FORMATION door: sits in the topbar as the gear's right-hand sibling, invite-tinted gold */
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.formation-btn { border-color: rgba(251, 191, 36, 0.4); display: grid; place-items: center; }
+.formation-btn:active { transform: translateY(1px); }
+
 .source-toggle {
   display: flex;
   border: 1px solid var(--line);

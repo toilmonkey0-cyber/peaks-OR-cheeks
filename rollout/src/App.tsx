@@ -39,10 +39,7 @@ export function App() {
   return (
     <>
       {view === "scanner" ? (
-        <>
-          <Scanner save={save} setSave={setSave} snapshots={snapshots} />
-          <button type="button" className="formation-door" data-testid="formation-door" onClick={() => setView("formation")}>FORMATION</button>
-        </>
+        <Scanner save={save} setSave={setSave} snapshots={snapshots} onFormation={() => setView("formation")} />
       ) : (
         <FormationScreen lineups={formationLineups} teams={snapshots.m27.teams} onExit={() => setView("scanner")} />
       )}

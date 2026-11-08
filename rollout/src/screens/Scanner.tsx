@@ -52,8 +52,8 @@ function ctx2d(canvas: HTMLCanvasElement): { ctx: CanvasRenderingContext2D; w: n
   return { ctx, w, h };
 }
 
-export function Scanner({ save, setSave, snapshots }: {
-  save: SaveState; setSave: SetSave; snapshots: Record<Source, Snapshot>;
+export function Scanner({ save, setSave, snapshots, onFormation }: {
+  save: SaveState; setSave: SetSave; snapshots: Record<Source, Snapshot>; onFormation: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [locked, setLocked] = useState({ pos: false, team: false, name: false, ovr: false });
@@ -815,13 +815,23 @@ export function Scanner({ save, setSave, snapshots }: {
       <canvas ref={tickerRef} className="ticker" aria-hidden />
       <header className="topbar">
         <button className="icon-btn" aria-label="Settings" onClick={() => { pulse(HAPTICS.ui); setShowSettings((s) => !s); }}>⚙</button>
-        <div className="source-toggle" role="tablist" aria-label="Ratings source" data-testid="source-toggle">
+        <div className="topbar-right">
+          <button className="icon-btn formation-btn" data-testid="formation-door" aria-label="FORMATION — the team-guessing game"
+            onClick={() => { pulse(HAPTICS.ui); onFormation(); }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <ellipse cx="12" cy="12" rx="9.4" ry="6" transform="rotate(-25 12 12)" fill="#7c4a21" stroke="#b07a4c" strokeWidth="0.8"/>
+              <path d="M8.4 13.6 15.6 10.4" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M9.6 12.1l1.2 2.2M11.7 11.2l1.2 2.2M13.8 10.3l1.2 2.2" stroke="#fbbf24" strokeWidth="1.1" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <div className="source-toggle" role="tablist" aria-label="Ratings source" data-testid="source-toggle">
           {SOURCES.map((s) => (
             <button key={s} type="button" role="tab" aria-selected={source === s}
               className={source === s ? "on" : ""}
               disabled={phase === "scanning" || phase === "charging" || !!duel}
               onClick={() => switchSource(s)}>{sourceLabel(s, snapshots[s])}</button>
           ))}
+          </div>
         </div>
       </header>
       <div className={`scoreline tappable${sheetOpen ? " active" : ""}`} data-testid="scoreline"

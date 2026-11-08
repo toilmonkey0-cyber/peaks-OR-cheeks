@@ -161,9 +161,6 @@
 .fm-clone.brown { background: linear-gradient(160deg, var(--brown-hi), var(--brown)); border-color: #c69467; color: #fbf1e6; }
 .fm-clone.brown .p { color: #f1dcc6; }
 
-.formation-door { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 50; padding: 5px 14px; border-radius: 999px;
-  background: rgba(17,25,38,.92); border: 1px solid rgba(251,191,36,.55); color: #fbbf24; font: 800 13px/1 "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; letter-spacing: .16em; cursor: pointer; }
-
 @keyframes fm-idle { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-3px) scale(1.025); } }
 @keyframes fm-sweep { from { transform: translateX(-180px); } to { transform: translateX(420px); } }
 @keyframes fm-stamp { 0% { opacity: 0; transform: translate(-50%,-50%) scale(2.2); } 18% { opacity: 1; transform: translate(-50%,-50%) scale(.94); } 30% { transform: translate(-50%,-50%) scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.04); } }
