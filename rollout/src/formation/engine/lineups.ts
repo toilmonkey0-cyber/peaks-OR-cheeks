@@ -26,12 +26,16 @@ const STAMP_PER_TEAM_SLOT = 3;
 const initials = (name: string) =>
   name.replace(/ (Jr|Sr|II|III|IV)\.?$/, "").split(/[ -]/).filter(Boolean).map((w) => w[0].toUpperCase()).join(".") + ".";
 
-/** Starters for one side: the top-rated player per slot, slot keys numbered when a position repeats. */
-function pickStarters(players: Card[], spec: [string, string][]): { key: string; label: string; card: Card }[] {
+type NumberedCard = Card & { jersey: number };
+
+/** Starters for one side: the top-rated numbered player per slot (a slot needs a number to be a clue). */
+function pickStarters(players: Card[], spec: [string, string][]): { key: string; label: string; card: NumberedCard }[] {
   const used = new Set<string>();
   const seen = new Map<string, number>();
   return spec.map(([pos, label]) => {
-    const card = players.filter((p) => p.position === pos && !used.has(p.playerId)).sort((a, b) => b.rating - a.rating)[0];
+    const card = players
+      .filter((p): p is NumberedCard => p.position === pos && p.jersey !== null && !used.has(p.playerId))
+      .sort((a, b) => b.rating - a.rating)[0];
     used.add(card.playerId);
     const n = (seen.get(pos) ?? 0) + 1;
     seen.set(pos, n);
@@ -59,7 +63,7 @@ export function buildLineups(snapshot: Snapshot): Record<string, TeamLineups> {
     ranked.forEach((c, i) => stampOf.set(c.playerId, i < k ? "P" : i >= ranked.length - k ? "C" : "M"));
   }
 
-  const toSlot = (x: { key: string; label: string; card: Card }, cls: SlotClass): SlotPlayer => ({
+  const toSlot = (x: { key: string; label: string; card: NumberedCard }, cls: SlotClass): SlotPlayer => ({
     key: x.key, label: x.label, pos: x.card.position, jersey: x.card.jersey, ini: initials(x.card.fullName),
     college: x.card.college, stamp: stampOf.get(x.card.playerId)!, cls, rating: x.card.rating,
     playerId: x.card.playerId, fullName: x.card.fullName,

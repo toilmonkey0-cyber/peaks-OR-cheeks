@@ -73,3 +73,13 @@ describe("initials", () => {
     expect(all(L).find((s) => s.fullName.startsWith("Derwin James"))?.ini).toBe("D.J.");
   });
 });
+
+describe("robustness", () => {
+  it("skips a starter with no jersey number for the next-best player at that slot", () => {
+    const snap = structuredClone(loadSnapshot("m27"));
+    const kcQbs = snap.players.filter((p) => p.team === "KC" && p.position === "QB").sort((a, b) => b.rating - a.rating);
+    expect(kcQbs.length).toBeGreaterThan(1);
+    kcQbs[0].jersey = null;
+    expect(buildLineups(snap).KC.off.slots[0].playerId).toBe(kcQbs[1].playerId);
+  });
+});
