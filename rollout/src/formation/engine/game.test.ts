@@ -288,3 +288,48 @@ describe("schemes + scoring", () => {
     expect(o.out).not.toContain(d.team);
   });
 });
+
+describe("spec §10: statistical invariants", () => {
+  /** Pull counts per rarity class with a controlled pool: only one jack, one skill, one common open. */
+  function classFrequencies(n: number) {
+    const g = createGame("w", L, ["KC", "BUF"]);
+    g.sides[1].solved = true;
+    g.sides[0].slots.forEach((s, i) => { if (![0, 1, 6].includes(i)) s.sealed = true; });
+    const rng = makeRng("weights");
+    const count = { jack: 0, skill: 0, common: 0 };
+    for (let i = 0; i < n; i++) {
+      const p = planPull(g, rng)!;
+      count[g.sides[p.side].lineup[p.index].cls]++;
+      const slot = g.sides[p.side].slots[p.index];
+      slot.layer = 0; // keep the same three slots pullable forever (all three players are MIDs or better: no fd loop-invariant here)
+      slot.pending = false;
+    }
+    return count;
+  }
+
+  it("weights 3:2:1 are honored by the selection (Monte-Carlo, ±15% relative tolerance)", () => {
+    const n = 3000;
+    const f = classFrequencies(n);
+    const expectNear = (got: number, want: number) =>
+      expect(Math.abs(got - want)).toBeLessThanOrEqual(want * 0.15);
+    expectNear(f.jack, n / 6);
+    expectNear(f.skill, n / 3);
+    expectNear(f.common, n / 2);
+  });
+
+  it("same seed → identical game (full replay: teams, every reveal, the log)", () => {
+    const play = (seed: string) => {
+      const g = createGame(seed, L);
+      const rng = makeRng(seed + ":pulls");
+      for (let i = 0; i < 40; i++) { const p = planPull(g, rng); if (!p) break; commitPull(g, p); }
+      call(g, 0, g.sides[0].team);
+      call(g, 1, g.sides[1].team);
+      return { teams: g.sides.map((s) => s.team), log: g.log.map((e) => e.text), total: g.total };
+    };
+    const a = play("daily-1");
+    const b = play("daily-1");
+    const c = play("daily-2");
+    expect(a).toEqual(b);
+    expect(a.teams).not.toEqual(c.teams);
+  });
+});

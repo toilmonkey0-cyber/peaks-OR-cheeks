@@ -16,6 +16,8 @@ describe("feel: the one tuning file", () => {
     expect([feel.REEL_FIRST_MS, feel.REEL_MS, feel.FLIGHT_MS]).toEqual([950, 620, 560]);
     expect([feel.VERDICT_PLAIN_MS, feel.VERDICT_BIG_MS]).toEqual([430, 780]);
     expect([feel.CONFIRMED_WAVE_STAGGER_MS, feel.FLAT_DEAD_AIR_MS, feel.FLAT_HOLD_MS]).toEqual([75, 380, 750]);
+    expect([feel.CONFIRMED_PRE_WAVE_MS, feel.CONFIRMED_LINGER_MS, feel.TURNOVER_HOLD_MS]).toEqual([300, 640, 1200]);
+    expect([feel.LANDING_BEAT_MS, feel.REEL_TAIL_MS, feel.REEL_TICK_MS, feel.REEL_TICK_RM_MS]).toEqual([200, 110, 75, 40]);
   });
 
   it("is the engine's source of truth (game re-exports the same objects)", () => {

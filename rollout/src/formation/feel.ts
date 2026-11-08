@@ -41,6 +41,18 @@ export const VERDICT_BIG_MS = 780;
 // ── the call ────────────────────────────────────────────────────────────────
 /** CONFIRMED: the wave pops one slot every this many ms. */
 export const CONFIRMED_WAVE_STAGGER_MS = 75;
+/** CONFIRMED show: beat before the wave starts, linger after the confetti. */
+export const CONFIRMED_PRE_WAVE_MS = 300;
+export const CONFIRMED_LINGER_MS = 640;
+/** The last-down wrong call holds its turnover ending this long. */
+export const TURNOVER_HOLD_MS = 1200;
+/** After a card lands: how long the ring flash plays before the deck resets. */
+export const LANDING_BEAT_MS = 200;
+/** Reel mechanics: the flicker stops this close to the reveal, ticking at this cadence (reduced motion ticks faster). */
+export const REEL_TAIL_MS = 110;
+export const REEL_TICK_MS = 75;
+export const REEL_TICK_RM_MS = 40;
+
 /** The wrong call: dead air before the gray "no.", then how long it sits. */
 export const FLAT_DEAD_AIR_MS = 380;
 export const FLAT_HOLD_MS = 750;

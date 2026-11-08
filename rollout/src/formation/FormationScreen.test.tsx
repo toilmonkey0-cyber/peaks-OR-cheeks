@@ -115,6 +115,33 @@ describe("THE PULL", () => {
     await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
   });
 
+  it("while a pull is in flight, the field and the chip bank are inert and nothing is saved", async () => {
+    mount();
+    // land one clue, snapshot the save, then start a second pull and immediately poke everything
+    fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+    fireEvent.pointerUp(window);
+    await waitFor(() => expect(revealed()).toBe(1), { timeout: 3000 });
+    const savedMidFlight = window.localStorage.getItem("rollout.formation.v1");
+    const before = JSON.parse(savedMidFlight!);
+
+    fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+    fireEvent.pointerUp(window);
+    // poke immediately — under reduced motion the pull lands in ~250ms, so "mid-flight" is right now
+    const lit = screen.getAllByTestId(/^slot-/).find((el) => /number \d+/.test(el.getAttribute("aria-label") ?? ""));
+    expect(lit).toBeTruthy();
+    fireEvent.click(lit!);
+    expect(screen.queryByRole("dialog", { name: /OFFENSE ·|DEFENSE ·|PEAK ·/ })).toBeNull(); // no sheet opened
+    fireEvent.click(screen.getByRole("button", { name: /banked chips/ })); // ◆ disabled with 0 chips — assert disabled instead
+    expect(screen.getByRole("button", { name: /banked chips/ })).toBeDisabled();
+    const after = JSON.parse(window.localStorage.getItem("rollout.formation.v1")!);
+    expect(after).toEqual(before); // a poke mid-flight never wrote a save with pending:true inside
+    // HOLD is disabled during the tail (a human can't press it); once it clears, the next pull works
+    await waitFor(() => expect(screen.getByTestId("hold-btn")).not.toBeDisabled(), { timeout: 4000 });
+    fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+    fireEvent.pointerUp(window);
+    await waitFor(() => expect(revealed()).toBe(2), { timeout: 4000 });
+  });
+
   it("keyboard: Space down + up on HOLD pulls", async () => {
     mount();
     const btn = screen.getByTestId("hold-btn");

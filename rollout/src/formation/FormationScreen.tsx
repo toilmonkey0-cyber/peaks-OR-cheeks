@@ -9,7 +9,10 @@ import {
   spendPeak, startPull, type GameState, type Play, type PullPlan,
 } from "./engine/game";
 import { ActionStage, reduceMotion, type StageApi } from "./ActionStage";
-import { CONFIRMED_WAVE_STAGGER_MS, FLAT_DEAD_AIR_MS, FLAT_HOLD_MS, PEAK_QUARTER_PULLS } from "./feel";
+import {
+  CONFIRMED_LINGER_MS, CONFIRMED_PRE_WAVE_MS, CONFIRMED_WAVE_STAGGER_MS, FLAT_DEAD_AIR_MS, FLAT_HOLD_MS,
+  LANDING_BEAT_MS, PEAK_QUARTER_PULLS, TURNOVER_HOLD_MS,
+} from "./feel";
 import { Field } from "./Field";
 import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } from "./sheets";
 import { teamViews } from "./teams";
@@ -94,9 +97,10 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       bump();
       synth.landThud();
       haptic(HAPTICS.formationLand);
-      await sleep(reduceMotion() ? 30 : 200);
+      await sleep(reduceMotion() ? 30 : LANDING_BEAT_MS);
       if (!alive.current) return;
     }
+    if (!alive.current) return;
     stage.reset();
     setLanding(new Set());
     busyRef.current = false;
@@ -109,6 +113,8 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   const lock = (on: boolean) => { busyRef.current = on; setBusy(on); };
   /** Save at stable points only — never between a release and its landing — so a killed tab resumes cleanly. */
   const persist = () => {
+    // never serialize an in-flight plan (a tab-kill would resume having counted the spin with no clue landed)
+    if (gameRef.current?.sides.some((S) => S.slots.some((x) => x.pending))) return;
     saveRef.current = { ...saveRef.current, inProgress: gameRef.current };
     writeFormationSave(saveRef.current);
   };
@@ -138,7 +144,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       synth.fanfare();
       haptic(HAPTICS.formationPeak);
       setEnterTint(side);
-      await sleep(rm ? 0 : 300);
+      await sleep(rm ? 0 : CONFIRMED_PRE_WAVE_MS);
       if (!alive.current) return;
       const order = game.sides[side].lineup.map((_, i) => i);
       if (side === 0) order.reverse(); // the offense wave ends on the QB
@@ -153,7 +159,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       const c = sideCenter(side);
       stage.burstAt(c.x, c.y, ["#fde68a", "#fbbf24", "#fff7d6"], false);
       if (r.quarterEnded && game.over!.score <= PEAK_QUARTER_PULLS) { synth.celebrate("peak"); haptic(HAPTICS.peakJoy); }
-      await sleep(rm ? 0 : 640);
+      await sleep(rm ? 0 : CONFIRMED_LINGER_MS);
     } else if (r.quarterEnded) {
       // the last down: endings deserve theater even when wrong
       stage.stamp(0, "TURNOVER", "cheeks");
@@ -161,7 +167,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       haptic(HAPTICS.formationCheeks);
       const c = sideCenter(side);
       stage.burstAt(c.x, c.y, ["#b07a4c", "#7c4a21", "#8d99ab"], true);
-      await sleep(rm ? 200 : 1200);
+      await sleep(rm ? 200 : TURNOVER_HOLD_MS);
     } else {
       // dead air, then the flattest possible answer
       await sleep(rm ? 120 : FLAT_DEAD_AIR_MS);
@@ -178,6 +184,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   };
 
   const onSlot = (side: 0 | 1, index: number) => {
+    if (busyRef.current) return; // a second thumb can't open a sheet mid-pull
     const s = g.sides[side].slots[index];
     if (filmSlot(g, side, index)) { persist(); bump(); return; }
     if (s.fd && !g.over) setSheet({ type: "peak", side, index });
@@ -235,7 +242,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
           </span>
           <span className="fm-stat"><small>SPINS</small>{g.pulls}</span>
           <span className="fm-stat"><small>GAME</small>{g.total + (g.over ? 0 : g.pulls)}</span>
-          <button type="button" className="fm-chips" disabled={!g.chips || !!g.over} aria-label={`${g.chips} banked chips`}
+          <button type="button" className="fm-chips" disabled={busy || !g.chips || !!g.over} aria-label={`${g.chips} banked chips`}
             onClick={() => setSheet({ type: "plays", from: "bank" })}>◆ {g.chips}</button>
         </div>
         {sideBar(1)}

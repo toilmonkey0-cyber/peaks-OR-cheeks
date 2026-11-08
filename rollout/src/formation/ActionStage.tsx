@@ -3,8 +3,8 @@ import { synth } from "@/audio/synth";
 import { chargeLevel, haptic, HAPTICS } from "@/haptics/haptics";
 import type { PullPlan } from "./engine/game";
 import {
-  BREATH_MAX, BREATH_MIN, CARD_GROWTH, CARD_LIFT_PX, FLIGHT_MS, FULL_CHARGE_MS, PERFECT_SIN,
-  REEL_FIRST_MS, REEL_MS, STREAK_COUNT, VERDICT_BIG_MS, VERDICT_PLAIN_MS,
+  BREATH_MAX, BREATH_MIN, CARD_GROWTH, CARD_LIFT_PX, FLIGHT_MS, FULL_CHARGE_MS, PERFECT_SIN, REEL_TICK_MS,
+  REEL_TICK_RM_MS, REEL_FIRST_MS, REEL_TAIL_MS, REEL_MS, STREAK_COUNT, VERDICT_BIG_MS, VERDICT_PLAIN_MS,
 } from "./feel";
 
 /** Imperative stage API the reveal sequence drives (the stage DOM never re-renders mid-pull). */
@@ -237,10 +237,10 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
       const t0 = performance.now();
       await new Promise<void>((res) => {
         const iv = setInterval(() => {
-          if (dead.current || performance.now() - t0 > spinMs - 110) { clearInterval(iv); res(); return; }
+          if (dead.current || performance.now() - t0 > spinMs - REEL_TAIL_MS) { clearInterval(iv); res(); return; }
           synth.tick();
           setFace(label, "#" + (1 + Math.floor(Math.random() * 98)), "");
-        }, rm ? 40 : 75);
+        }, rm ? REEL_TICK_RM_MS : REEL_TICK_MS);
       });
       await sleep(rm ? 0 : 110);
       void plan;
