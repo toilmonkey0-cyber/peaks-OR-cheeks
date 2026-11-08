@@ -3,12 +3,17 @@ import { registerSW } from "virtual:pwa-register";
 import { loadAllSnapshots } from "./data/snapshot";
 import { loadSave, writeSave, type SaveState } from "./storage/storage";
 import { Scanner } from "./screens/Scanner";
+import { buildLineups } from "./formation/engine/lineups";
+import { FormationScreen } from "./formation/FormationScreen";
 
 const snapshots = loadAllSnapshots();
+// FORMATION always plays the current game's rosters (M27), independent of the scanner's source toggle
+const formationLineups = buildLineups(snapshots.m27);
 
 export function App() {
   const [save, setSave] = useState<SaveState>(loadSave);
   const [updateReady, setUpdateReady] = useState(false);
+  const [view, setView] = useState<"scanner" | "formation">("scanner");
   const applyUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null);
 
   useEffect(() => { writeSave(save); }, [save]);
@@ -32,7 +37,14 @@ export function App() {
 
   return (
     <>
-      <Scanner save={save} setSave={setSave} snapshots={snapshots} />
+      {view === "scanner" ? (
+        <>
+          <Scanner save={save} setSave={setSave} snapshots={snapshots} />
+          <button type="button" className="formation-door" data-testid="formation-door" onClick={() => setView("formation")}>FORMATION</button>
+        </>
+      ) : (
+        <FormationScreen lineups={formationLineups} teams={snapshots.m27.teams} onExit={() => setView("scanner")} />
+      )}
       {updateReady && (
         <div className="update-toast" data-testid="update-toast" role="status">
           <span>FRESH CARDS READY</span>
