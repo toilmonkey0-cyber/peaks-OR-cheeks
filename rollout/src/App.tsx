@@ -13,7 +13,8 @@ const formationLineups = buildLineups(snapshots.m27);
 export function App() {
   const [save, setSave] = useState<SaveState>(loadSave);
   const [updateReady, setUpdateReady] = useState(false);
-  const [view, setView] = useState<"scanner" | "formation">("scanner");
+  // a #formation link opens straight into FORMATION (phone bench, share links)
+  const [view, setView] = useState<"scanner" | "formation">(() => (window.location.hash.startsWith("#formation") ? "formation" : "scanner"));
   const applyUpdate = useRef<((reload?: boolean) => Promise<void>) | null>(null);
 
   useEffect(() => { writeSave(save); }, [save]);

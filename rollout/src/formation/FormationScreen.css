@@ -34,7 +34,9 @@
 .fm-tape { margin-left: auto; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line) !important; color: var(--dim); font-weight: 800; letter-spacing: .1em; font-size: 12px; }
 .fm-tape + .fm-call { margin-left: 0; }
 
-.fm-field { position: relative; container-type: inline-size; height: min(320px, 41dvh); margin: 0 10px; border-radius: 16px; overflow: hidden;
+.fm-field { position: relative; container-type: inline-size; height: min(320px, 41dvh); margin: 0 auto; border-radius: 16px; overflow: hidden;
+  /* chips scale with field width; capping width at 1.2x height keeps phone geometry on any screen (tablets center it) */
+  width: min(calc(100% - 20px), calc(min(320px, 41dvh) * 1.2));
   background: repeating-linear-gradient(to bottom, var(--turfA) 0 9.09%, var(--turfB) 9.09% 18.18%); }
 .fm-side { display: contents; }
 .fm-los { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--los); opacity: .7; }

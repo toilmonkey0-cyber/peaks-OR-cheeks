@@ -65,6 +65,16 @@ describe("FormationScreen shell", () => {
 });
 
 describe("the door", () => {
+  it("a #formation link opens straight into the game", () => {
+    window.location.hash = "#formation";
+    try {
+      render(<App />);
+      expect(screen.getByTestId("formation-screen")).toBeInTheDocument();
+    } finally {
+      window.location.hash = "";
+    }
+  });
+
   it("the scanner shows a FORMATION door that opens the game and comes back", () => {
     render(<App />);
     fireEvent.click(screen.getByTestId("formation-door"));
