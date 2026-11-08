@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadSnapshot } from "@/data/snapshot";
 import { App } from "@/App";
 import { buildLineups } from "./engine/lineups";
-import { createGame } from "./engine/game";
+import { createGame, type GameState } from "./engine/game";
+import { freshFormationSave, loadFormationSave, writeFormationSave } from "./store";
 import { FormationScreen } from "./FormationScreen";
 
 const snap = loadSnapshot("m27");
@@ -242,5 +243,84 @@ describe("call theatricals", () => {
     fireEvent.click(within(shop).getByText(/STAR POWER/));
     expect(within(shop).getByText(/Owned/)).toBeInTheDocument();
     expect(within(shop).getByText("HALFTIME ADJUSTMENTS · ◆ 1")).toBeInTheDocument();
+  });
+});
+
+describe("free play: quarters, tape, save + resume", () => {
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((q: string) => ({
+      matches: q.includes("reduce"), media: q, onchange: null,
+      addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => { window.matchMedia = realMatchMedia; });
+
+  const pick = (side: "offense" | "defense", abbr: string) => {
+    fireEvent.click(screen.getByRole("button", { name: `CALL the ${side}` }));
+    fireEvent.click(screen.getByTestId(`pick-${abbr}`));
+  };
+  const ready = (side: "offense" | "defense") =>
+    waitFor(() => expect(screen.getByRole("button", { name: `CALL the ${side}` })).not.toBeDisabled(), { timeout: 4000 });
+  /** Solve the current quarter instantly: call both answers. */
+  async function solveQuarter() {
+    const off = screen.getByTestId("formation-screen").dataset.offense!;
+    const def = screen.getByTestId("formation-screen").dataset.defense!;
+    await ready("offense"); pick("offense", off);
+    await ready("defense"); pick("defense", def);
+    await screen.findByRole("dialog", { name: /FINAL|PEAK QUARTER|TURNOVER/ }, { timeout: 5000 });
+  }
+
+  it("NEXT QUARTER deals a fresh field: Q2, spins reset, all 22 slots hidden", async () => {
+    mount();
+    await solveQuarter();
+    fireEvent.click(screen.getByRole("button", { name: "NEXT QUARTER" }));
+    expect(screen.getByText("Q2")).toBeInTheDocument();
+    expect(screen.getByText("SPINS").parentElement!.textContent).toBe("SPINS0");
+    expect(screen.getAllByTestId(/^slot-/).every((el) => /hidden/.test(el.getAttribute("aria-label") ?? ""))).toBe(true);
+  });
+
+  it("four quarters reach the FINAL line, NEW GAME starts over at Q1 and records the game", async () => {
+    mount();
+    for (let q = 1; q <= 4; q++) {
+      await solveQuarter();
+      if (q < 4) fireEvent.click(screen.getByRole("button", { name: "NEXT QUARTER" }));
+    }
+    expect(screen.getByText(/FINAL: 0 spins − 0 chips =/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "NEW GAME" }));
+    expect(screen.getByText("Q1")).toBeInTheDocument();
+    expect(loadFormationSave()).toMatchObject({ bestGame: 0, gamesPlayed: 1 });
+  });
+
+  it("TAPE lists the log newest-first", async () => {
+    mount();
+    await ready("offense"); pick("offense", "NE");
+    await ready("offense"); pick("offense", "ARI");
+    await ready("offense");
+    fireEvent.click(screen.getByRole("button", { name: "TAPE" }));
+    const rows = within(screen.getByRole("dialog", { name: "THE TAPE" })).getAllByRole("listitem");
+    expect(rows[0].textContent).toContain("not ARI");
+    expect(rows[1].textContent).toContain("not NE");
+  });
+
+  it("a game in progress is saved and resumes where it left off", async () => {
+    const { unmount } = mount();
+    await ready("offense"); pick("offense", "NE");
+    await ready("offense");
+    unmount();
+    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} />);
+    expect(litPips()).toBe(3);
+    expect(screen.getByTestId("formation-screen").dataset.offense).toBe("KC");
+  });
+
+  it("a pull killed mid-flight resumes as if it never happened: slot pullable, no spin lost", () => {
+    const g: GameState = createGame("mid", L, ["KC", "BUF"]);
+    g.pulls = 3;
+    g.sides[0].slots[4].pending = true; // the tab died with this card in the air
+    writeFormationSave({ ...freshFormationSave(), inProgress: g });
+    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} />);
+    expect(screen.getByText("SPINS").parentElement!.textContent).toBe("SPINS3");
+    expect(screen.getByTestId("hold-btn")).not.toBeDisabled();
+    expect(loadFormationSave().inProgress!.sides[0].slots[4].pending).toBe(false);
   });
 });

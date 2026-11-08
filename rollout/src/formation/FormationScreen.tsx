@@ -5,7 +5,7 @@ import type { Team } from "@/data/schema";
 import { makeRng } from "@/engine/rng";
 import type { TeamLineups } from "./engine/lineups";
 import {
-  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, nextQuarter, planPull, playPeak,
+  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, finalScore, nextQuarter, planPull, playPeak,
   spendPeak, startPull, type GameState, type Play, type PullPlan,
 } from "./engine/game";
 import { ActionStage, reduceMotion, type StageApi } from "./ActionStage";
@@ -13,6 +13,7 @@ import { CONFIRMED_WAVE_STAGGER_MS, FLAT_DEAD_AIR_MS, FLAT_HOLD_MS, PEAK_QUARTER
 import { Field } from "./Field";
 import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } from "./sheets";
 import { teamViews } from "./teams";
+import { loadFormationSave, recordFinishedGame, writeFormationSave } from "./store";
 import "./FormationScreen.css";
 
 export interface FormationScreenProps {
@@ -41,8 +42,12 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, initialGame }: FormationScreenProps) {
   const teamMap = useMemo(() => teamViews(teams), [teams]);
   const seedRef = useRef(seed ?? newSeed());
+  const saveRef = useRef(loadFormationSave());
   const gameRef = useRef<GameState | null>(null);
-  if (!gameRef.current) gameRef.current = initialGame ?? createGame(seedRef.current, lineups, initialTeams);
+  if (!gameRef.current) {
+    gameRef.current = initialGame
+      ?? (initialTeams ? createGame(seedRef.current, lineups, initialTeams) : saveRef.current.inProgress ?? createGame(seedRef.current, lineups));
+  }
   const g = gameRef.current;
   const rngRef = useRef(makeRng(seedRef.current + ":pulls"));
   const rootRef = useRef<HTMLDivElement>(null);
@@ -84,6 +89,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       await stage.fly(p, label, target);
       if (!alive.current) return;
       commitPull(game, p);
+      persist();
       setLanding(new Set([`${p.side}-${p.index}`]));
       bump();
       synth.landThud();
@@ -98,9 +104,14 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   };
 
   const close = () => setSheet(null);
-  const done = () => { setSheet(null); bump(); };
+  const done = () => { setSheet(null); persist(); bump(); };
 
   const lock = (on: boolean) => { busyRef.current = on; setBusy(on); };
+  /** Save at stable points only — never between a release and its landing — so a killed tab resumes cleanly. */
+  const persist = () => {
+    saveRef.current = { ...saveRef.current, inProgress: gameRef.current };
+    writeFormationSave(saveRef.current);
+  };
 
   /** Center of one side's half of the field, in root coordinates (for the confetti). */
   const sideCenter = (side: 0 | 1) => {
@@ -119,6 +130,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     synth.ensure();
     lock(true);
     const r = call(game, side, abbr);
+    persist();
     bump();
     const rm = reduceMotion();
     if (r.correct) {
@@ -167,7 +179,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
 
   const onSlot = (side: 0 | 1, index: number) => {
     const s = g.sides[side].slots[index];
-    if (filmSlot(g, side, index)) { bump(); return; }
+    if (filmSlot(g, side, index)) { persist(); bump(); return; }
     if (s.fd && !g.over) setSheet({ type: "peak", side, index });
     else setSheet({ type: "detail", side, index });
   };
@@ -181,6 +193,8 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     done();
   };
   const onNewGame = () => {
+    const finished = gameRef.current!;
+    if (finished.over && finished.quarter >= 4) saveRef.current = recordFinishedGame(saveRef.current, finalScore(finished));
     seedRef.current = newSeed();
     gameRef.current = createGame(seedRef.current, lineups);
     rngRef.current = makeRng(seedRef.current + ":pulls");
@@ -209,7 +223,9 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   };
 
   return (
-    <div ref={rootRef} className="fm" data-testid="formation-screen">
+    <div ref={rootRef} className="fm" data-testid="formation-screen"
+      data-offense={import.meta.env.MODE === "test" ? g.sides[0].team : undefined}
+      data-defense={import.meta.env.MODE === "test" ? g.sides[1].team : undefined}>
       <div className="fm-top">
         <div className="fm-hud">
           <button type="button" className="fm-back" aria-label="Back to the scanner" onClick={onExit}>‹</button>
@@ -240,7 +256,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       {sheet?.type === "plays" && <PlaysSheet game={g} title={sheet.from === "bank" ? "SPEND A CHIP" : "SPEND THE PEAK"} onPick={onPlay} onClose={close} />}
       {sheet?.type === "detail" && <DetailSheet game={g} side={sheet.side} index={sheet.index} onClose={close} />}
       {sheet?.type === "tape" && <TapeSheet log={g.log} onClose={close} />}
-      {!sheet && !busy && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); bump(); }} />}
+      {!sheet && !busy && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); persist(); bump(); }} />}
     </div>
   );
 }
