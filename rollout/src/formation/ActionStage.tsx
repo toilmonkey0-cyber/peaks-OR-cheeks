@@ -54,6 +54,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
   onReleaseRef.current = onRelease;
 
   const C = useRef({ active: false, t0: 0, last: 0, level: 0, phase: 0, hap: -1 });
+  const dead = useRef(false); // unmounted: every loop, timer, and API call goes quiet
   const fx = useRef({ ctx: null as CanvasRenderingContext2D | null, w: 0, h: 0, parts: [] as Particle[], rings: [] as Ring[], bits: [] as Bit[], running: false, last: 0 });
 
   const setFace = (lbl: string, big: string, sub: string) => {
@@ -114,6 +115,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
 
   const loop = (now: number) => {
     const F = fx.current, c = C.current;
+    if (dead.current || !cardRef.current) { F.running = false; c.active = false; return; }
     const k = Math.min(3, (now - F.last) / 16.7);
     F.last = now;
     const ctx = F.ctx;
@@ -222,6 +224,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
 
   const api: StageApi = {
     async reel(plan, label, first) {
+      if (dead.current || !cardRef.current) return;
       const rm = reduceMotion();
       card().classList.remove("idle");
       card().style.opacity = "1";
@@ -234,7 +237,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
       const t0 = performance.now();
       await new Promise<void>((res) => {
         const iv = setInterval(() => {
-          if (performance.now() - t0 > spinMs - 110) { clearInterval(iv); res(); return; }
+          if (dead.current || performance.now() - t0 > spinMs - 110) { clearInterval(iv); res(); return; }
           synth.tick();
           setFace(label, "#" + (1 + Math.floor(Math.random() * 98)), "");
         }, rm ? 40 : 75);
@@ -243,6 +246,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
       void plan;
     },
     async verdict(plan, label) {
+      if (dead.current || !cardRef.current) return;
       const rm = reduceMotion();
       face().className = "fm-face " + plan.face;
       setFace(label, plan.num, plan.sub);
@@ -261,6 +265,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
     },
     fly(plan, label, target) {
       return new Promise<void>((done) => {
+        if (dead.current || !cardRef.current) { done(); return; }
         const a = card().getBoundingClientRect();
         if (!target || reduceMotion() || !document.body.animate) { card().style.opacity = "0"; done(); return; }
         const b = target.getBoundingClientRect();
@@ -284,6 +289,7 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
       });
     },
     reset() {
+      if (dead.current || !cardRef.current) return;
       const el = card();
       el.style.transition = "transform .32s cubic-bezier(.2,1.4,.4,1), opacity .2s";
       el.style.opacity = "1";
@@ -319,7 +325,14 @@ export const ActionStage = forwardRef<StageApi, ActionStageProps>(function Actio
     const up = () => { if (C.current.active) release(); };
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
-    return () => { window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); synth.formationRiserStop(); };
+    dead.current = false;
+    return () => {
+      dead.current = true;
+      C.current.active = false;
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      synth.formationRiserStop();
+    };
     // release/api are stable closures over refs
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

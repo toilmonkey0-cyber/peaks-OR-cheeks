@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { synth } from "@/audio/synth";
 import { haptic, HAPTICS } from "@/haptics/haptics";
 import type { Team } from "@/data/schema";
@@ -53,6 +53,8 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   const [sheet, setSheet] = useState<SheetState>(null);
   const sheetRef = useRef<SheetState>(null);
   sheetRef.current = sheet;
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const emptyPool = !g.over && eligible(g).length === 0;
   const canCharge = () => !busyRef.current && !sheetRef.current && !gameRef.current!.over && eligible(gameRef.current!).length > 0;
 
@@ -72,15 +74,19 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       const p = plans[k];
       const label = (p.side ? "DEF " : "OFF ") + game.sides[p.side].lineup[p.index].label;
       await stage.reel(p, label, k === 0);
+      if (!alive.current) return;
       await stage.verdict(p, label);
+      if (!alive.current) return;
       const target = rootRef.current?.querySelector(`[data-testid="slot-${p.side}-${p.index}"]`) ?? null;
       await stage.fly(p, label, target);
+      if (!alive.current) return;
       commitPull(game, p);
       setLanding(new Set([`${p.side}-${p.index}`]));
       bump();
       synth.landThud();
       haptic(HAPTICS.formationLand);
       await sleep(reduceMotion() ? 30 : 200);
+      if (!alive.current) return;
     }
     stage.reset();
     setLanding(new Set());

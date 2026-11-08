@@ -118,6 +118,44 @@ describe("THE PULL", () => {
     expect(screen.getByText(/make the call/i)).toBeInTheDocument();
   });
 
+  /** The test runner's Node process (the app's tsconfig has no Node types, by design). */
+  type Proc = { on(e: string, f: (x: unknown) => void): void; off(e: string, f: (x: unknown) => void): void };
+  const proc = (globalThis as unknown as { process: Proc }).process;
+
+  /** Collect anything thrown after the screen is gone (rejections from the sequence, errors from frames/timers). */
+  async function errorsAfterUnmount(start: () => void): Promise<unknown[]> {
+    const errors: unknown[] = [];
+    const onRej = (e: unknown) => errors.push(e);
+    const onErr = (e: ErrorEvent) => errors.push(e.error ?? e.message);
+    proc.on("unhandledRejection", onRej);
+    window.addEventListener("error", onErr);
+    try {
+      const { unmount } = mount();
+      start();
+      unmount();
+      await new Promise((r) => setTimeout(r, 1500));
+    } finally {
+      proc.off("unhandledRejection", onRej);
+      window.removeEventListener("error", onErr);
+    }
+    return errors;
+  }
+
+  it("leaving mid-pull is clean: the sequence stops, nothing throws after the screen is gone", async () => {
+    const errors = await errorsAfterUnmount(() => {
+      fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+      fireEvent.pointerUp(window);
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it("leaving mid-charge is clean: the charge loop stops with the screen", async () => {
+    const errors = await errorsAfterUnmount(() => {
+      fireEvent.pointerDown(screen.getByTestId("hold-btn"));
+    });
+    expect(errors).toEqual([]);
+  });
+
   it("a second hold while a pull is landing is ignored (one spin, one card)", async () => {
     mount();
     const btn = screen.getByTestId("hold-btn");
