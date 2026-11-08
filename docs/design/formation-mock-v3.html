@@ -1,0 +1,849 @@
+<div id="fs-root" class="viz-dotted-background">
+  <div class="fs-wrap">
+    <div class="fs-phone" id="fs-phone" role="group" aria-label="Spin-first formation game, playable"></div>
+    <p class="fs-cap">hold the card (or HOLD) · it breathes in energy and grows · let go at the top of a breath for a PERFECT release · sketch audio, speaker mutes</p>
+  </div>
+</div>
+<style>
+#fs-root .fs-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 8px 10px}
+#fs-root .fs-cap{margin:0;max-width:390px;text-align:center;font-size:12px;color:light-dark(#4b5563,#9aa4b2)}
+#fs-root .fs-phone{--gold:#fbbf24;--gold-hi:#fde68a;--gold-lo:#b7791f;--brown:#7c4a21;--brown-hi:#b07a4c;--ink:#e8edf5;--dim:#8d99ab;--line:#273246;--bg:#0a0e15;--panel:#111926;--turfA:#10301f;--turfB:#0d2919;--los:#60a5fa;--ice:#8cd2ff;
+  position:relative;width:min(390px,100%);height:780px;overflow:hidden;border-radius:30px;background:var(--bg);color:var(--ink);
+  font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;font-weight:600;letter-spacing:.02em;
+  display:flex;flex-direction:column;box-shadow:0 14px 34px rgba(0,0,0,.35);color-scheme:dark}
+#fs-root :where(.fs-phone button){appearance:none;background:none;border:0;margin:0;padding:0;font:inherit;color:inherit;text-align:inherit;letter-spacing:inherit;min-height:0;min-width:0;height:auto;box-shadow:none;border-radius:0}
+#fs-root .fs-top{flex:0 0 auto;display:flex;flex-direction:column}
+#fs-root .fs-phone.quake .fs-top{animation:fs-quake .24s}
+
+#fs-root .fg-hud{display:flex;align-items:center;gap:12px;padding:16px 16px 8px;font-size:16px}
+#fs-root .fg-q{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:2px 9px;font-weight:800}
+#fs-root .fg-downs{display:flex;gap:3px;align-items:center}
+#fs-root .fg-downs i{display:block;width:9px;height:16px;border-radius:2px;background:var(--gold)}
+#fs-root .fg-downs i.off{background:#263044}
+#fs-root .fg-downs.shake{animation:fs-shake .4s}
+#fs-root .fg-stat{font-weight:800;font-variant-numeric:tabular-nums}
+#fs-root .fg-stat small{font-size:11px;color:var(--dim);font-weight:600;margin-right:4px;letter-spacing:.08em}
+#fs-root .fg-chips{margin-left:auto;padding:4px 11px;border-radius:999px;background:rgba(251,191,36,.14);color:var(--gold);font-weight:800;border:1px solid rgba(251,191,36,.45)}
+#fs-root .fg-chips:disabled{opacity:.45}
+#fs-root .fg-bar{display:flex;align-items:center;gap:8px;padding:4px 14px;min-height:32px}
+#fs-root .fg-bar .side{font-weight:800;letter-spacing:.14em;color:var(--dim);font-size:13px}
+#fs-root .fg-bar .who{font-weight:800;font-size:17px}
+#fs-root .fg-bar .who.on{color:var(--team)}
+#fs-root .fg-call{margin-left:auto;padding:4px 13px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);font-weight:800;letter-spacing:.1em;font-size:13px}
+#fs-root .fg-tape{padding:4px 11px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-weight:800;letter-spacing:.1em;font-size:12px}
+
+#fs-root .fg-field{position:relative;container-type:inline-size;height:320px;margin:0 10px;border-radius:16px;overflow:hidden;
+  background:repeating-linear-gradient(to bottom,var(--turfA) 0 9.09%,var(--turfB) 9.09% 18.18%)}
+#fs-root .fg-los{position:absolute;left:0;right:0;top:50%;height:2px;background:var(--los);opacity:.7}
+#fs-root .fg-flabel{position:absolute;left:10px;font-size:12px;font-weight:800;letter-spacing:.16em;color:rgba(232,237,245,.42)}
+#fs-root .fg-flabel.top{top:8px}
+#fs-root .fg-flabel.bot{bottom:8px}
+#fs-root .fg-tint{position:absolute;left:0;right:0;display:flex;align-items:center;justify-content:center;pointer-events:none;background:color-mix(in srgb,var(--team) 20%,transparent)}
+#fs-root .fg-tint.top{top:0;height:50%}
+#fs-root .fg-tint.bot{bottom:0;height:50%}
+#fs-root .fg-tint span{font-size:22cqw;font-weight:800;letter-spacing:.04em;color:color-mix(in srgb,var(--team) 32%,transparent)}
+#fs-root .fg-tint.enter{animation:fs-tint-in .7s cubic-bezier(.2,1.2,.4,1) both}
+#fs-root .fg-tint.enter span{animation:fs-abbr-in .8s .25s cubic-bezier(.2,1.4,.4,1) both}
+#fs-root .fg-chip.wave{animation:fs-wave-pop .4s cubic-bezier(.2,1.4,.4,1) both}
+#fs-root .fg-chip.wave .num{color:var(--team)}
+#fs-root .fs-stamp.confirmed{color:#fde68a;text-shadow:0 0 24px rgba(251,191,36,.95);font-size:42px;letter-spacing:.1em}
+#fs-root .fs-stamp.flat{color:#8d99ab;font-size:24px;letter-spacing:.04em;text-transform:lowercase;text-shadow:none}
+#fs-root .fg-chip{position:absolute;box-sizing:border-box;transform:translate(-50%,-50%);width:10cqw;aspect-ratio:1/1.14;border-radius:1.8cqw;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4cqw;line-height:1;
+  background:rgba(8,12,18,.5);border:1px dashed rgba(232,237,245,.26);color:var(--ink)}
+#fs-root .fg-chip .pos{font-size:2.2cqw;font-weight:700;color:var(--dim)}
+#fs-root .fg-chip .num{font-size:4.6cqw;font-weight:800}
+#fs-root .fg-chip .ini{font-size:2.2cqw;font-weight:700;color:#cbd5e1}
+#fs-root .fg-chip .mark{position:absolute;top:.4cqw;right:.7cqw;font-size:1.8cqw}
+#fs-root .fg-chip.lit{background:#18212f;border:1px solid #3a4a62}
+#fs-root .fg-chip.lit .pos{color:#94a3b8}
+#fs-root .fg-chip.peak{background:linear-gradient(160deg,var(--gold-hi),var(--gold) 55%,var(--gold-lo));border:1px solid var(--gold-hi);color:#1c1405}
+#fs-root .fg-chip.peak .pos,#fs-root .fg-chip.peak .ini{color:#4a3508}
+#fs-root .fg-chip.cheeks{background:linear-gradient(160deg,var(--brown-hi),var(--brown));border:1px solid #c69467;color:#fbf1e6}
+#fs-root .fg-chip.cheeks .pos,#fs-root .fg-chip.cheeks .ini{color:#f1dcc6}
+#fs-root .fg-chip.fd{background:repeating-linear-gradient(135deg,#d99a1e 0 .9cqw,var(--gold) .9cqw 1.8cqw);border:1px solid var(--gold-hi);color:#1c1405;animation:fs-glow 1.5s ease-in-out infinite}
+#fs-root .fg-chip.fd .pos,#fs-root .fg-chip.fd .ini{color:#3a2a06}
+#fs-root .fg-chip.sealed{background:#121821;border:1px solid #232c3b;opacity:.55}
+#fs-root .fg-chip.ghost{background:rgba(8,12,18,.55);border:1px solid color-mix(in srgb,var(--team) 60%,transparent)}
+#fs-root .fg-chip.ghost .num{color:var(--team)}
+#fs-root .fg-chip.known.lit{box-shadow:inset 0 0 0 2px var(--team)}
+#fs-root .fg-chip.filmable{outline:2px solid var(--los);outline-offset:2px}
+#fs-root .fg-chip.landing{animation:fs-land .5s cubic-bezier(.2,1.4,.4,1)}
+#fs-root .fg-chip.landing::after{content:"";position:absolute;inset:-30%;border-radius:50%;border:2px solid rgba(140,205,255,.85);animation:fs-ring .55s ease-out forwards;pointer-events:none}
+
+#fs-root .fs-action{position:relative;z-index:9;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin:8px 10px 12px;border-radius:18px;border:1px solid var(--line)}
+#fs-root .fs-bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;background:radial-gradient(ellipse at 50% 38%,#12203a 0%,#0a0f19 72%)}
+#fs-root .fs-bg::before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(46,60,95,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(46,60,95,.35) 1px,transparent 1px);background-size:34px 34px;opacity:.55}
+#fs-root .fs-bg::after{content:"";position:absolute;top:0;bottom:0;left:0;width:180px;background:linear-gradient(90deg,rgba(56,189,248,0),rgba(56,189,248,.10),rgba(56,189,248,0));animation:fs-sweep 6s linear infinite}
+#fs-root .fs-stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center}
+#fs-root .fs-card{position:relative;width:96px;height:110px;--glow:.15;transform-origin:50% 55%;will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;z-index:2}
+#fs-root .fs-card.idle{animation:fs-idle 3.2s ease-in-out infinite}
+#fs-root .fs-face{position:absolute;inset:0;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;line-height:1;color:var(--ink);
+  border:1.5px solid color-mix(in srgb,#bfe6ff calc(var(--glow) * 80%),#3a4a62);
+  box-shadow:0 0 calc(var(--glow) * 50px) calc(var(--glow) * 7px) rgba(140,205,255,calc(var(--glow) * .7)),inset 0 0 calc(var(--glow) * 28px) rgba(200,235,255,calc(var(--glow) * .5))}
+#fs-root .fs-face.back{background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 6px,transparent 6px 12px),radial-gradient(circle at 30% 18%,#22324f,#0b1220 72%)}
+#fs-root .fs-face.back::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:radial-gradient(circle at 50% 55%,rgba(255,255,255,.95),rgba(140,205,255,0) 68%);opacity:calc((var(--glow) - .55) * 1.4)}
+#fs-root .fs-face.reel,#fs-root .fs-face.plain{background:#18212f}
+#fs-root .fs-face.plain{border-color:#6b7d99}
+#fs-root .fs-face.gold{background:linear-gradient(160deg,var(--gold-hi),var(--gold) 55%,var(--gold-lo));border-color:var(--gold-hi);color:#1c1405;box-shadow:0 0 40px 8px rgba(251,191,36,.55)}
+#fs-root .fs-face.brown{background:linear-gradient(160deg,var(--brown-hi),var(--brown));border-color:#c69467;color:#fbf1e6;box-shadow:0 0 18px 2px rgba(124,74,33,.5)}
+#fs-root .fs-lbl{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.12em}
+#fs-root .fs-big{font-size:36px;font-weight:800}
+#fs-root .fs-sub{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--ice)}
+#fs-root .fs-face.gold .fs-lbl,#fs-root .fs-face.gold .fs-sub{color:#4a3508}
+#fs-root .fs-face.brown .fs-lbl,#fs-root .fs-face.brown .fs-sub{color:#f1dcc6}
+#fs-root .fs-stamp{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:44px;font-weight:800;letter-spacing:.14em;pointer-events:none;opacity:0;z-index:3;white-space:nowrap}
+#fs-root .fs-stamp.s2{top:14%;font-size:30px}
+#fs-root .fs-stamp.go{animation:fs-stamp 1.05s cubic-bezier(.2,1.3,.4,1) forwards}
+#fs-root .fs-stamp.peak{color:var(--gold-hi);text-shadow:0 0 18px rgba(251,191,36,.85)}
+#fs-root .fs-stamp.cheeks{color:#d3a06f;text-shadow:0 0 14px rgba(124,74,33,.8)}
+#fs-root .fs-stamp.perfect{color:#fff;text-shadow:0 0 22px rgba(140,205,255,.95)}
+#fs-root .fs-say{position:relative;min-height:34px;padding:2px 16px;text-align:center;font-size:15px;color:#dbe3ee;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#fs-root .fs-say b{color:var(--gold)}
+#fs-root .fs-spinrow{position:relative;display:flex;align-items:center;gap:10px;padding:6px 16px 14px}
+#fs-root .fs-spin{flex:1;height:56px;border-radius:16px;background:linear-gradient(180deg,#ffd45a,var(--gold) 60%,#d99a1e);color:#1c1405;font-weight:800;font-size:24px;letter-spacing:.18em;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 5px 0 #9a6a12;touch-action:none;user-select:none;-webkit-user-select:none}
+#fs-root .fs-spin small{font-size:11px;letter-spacing:.08em;font-weight:700}
+#fs-root .fs-spin.held{transform:translateY(3px);box-shadow:0 2px 0 #9a6a12,0 0 26px 4px rgba(140,205,255,.55)}
+#fs-root .fs-spin:disabled{filter:grayscale(1);opacity:.4;box-shadow:none;transform:none}
+#fs-root .fs-mute{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);color:var(--dim);font-size:15px;font-weight:800;flex:0 0 auto}
+#fs-root .fs-mute.off{color:#f87171;border-color:#f87171}
+
+#fs-root .fs-vig{position:absolute;inset:0;z-index:7;pointer-events:none;opacity:0;transition:opacity .4s ease;
+  background:radial-gradient(circle at var(--cx,50%) var(--cy,75%),rgba(3,5,10,0) 0,rgba(3,5,10,0) 70px,rgba(3,5,10,.92) 290px)}
+#fs-root .fs-vig.live{transition:none}
+#fs-root .fs-fx{position:absolute;inset:0;width:100%;height:100%;z-index:10;pointer-events:none}
+#fs-root .fs-flash{position:absolute;inset:0;z-index:11;pointer-events:none;background:#fff;opacity:0}
+#fs-root .fs-flash.go{animation:fs-flash .38s ease-out}
+#fs-root .fs-sheets{position:absolute;inset:0;z-index:20;pointer-events:none}
+#fs-root .fs-sheets > *{pointer-events:auto}
+
+#fs-root .fg-scrim{position:absolute;inset:0;background:rgba(3,6,10,.55)}
+#fs-root .fg-sheet{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:10px;max-height:88%;padding:14px 14px 20px;background:#101722;border-top:1px solid var(--line);border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.4);animation:fs-up .22s ease-out;overflow:auto}
+#fs-root .fg-sh-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:18px;font-weight:800;letter-spacing:.06em}
+#fs-root .fg-x{color:var(--dim);font-size:13px;letter-spacing:.12em;padding:6px 8px}
+#fs-root .fg-note{margin:0;color:#c3cddb;font-size:15px;font-weight:500}
+#fs-root .fg-teams{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+#fs-root .fg-team{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 8px;border-radius:10px;background:#172131;border-left:3px solid var(--team);line-height:1.05}
+#fs-root .fg-team b{font-size:16px;font-weight:800}
+#fs-root .fg-team small{font-size:11px;color:var(--dim);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#fs-root .fg-team:disabled{opacity:.28;text-decoration:line-through}
+#fs-root .fg-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:11px 14px;border-radius:14px;background:#172131;border:1px solid var(--line)}
+#fs-root .fg-opt b{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--gold)}
+#fs-root .fg-opt small{font-size:14px;color:#c3cddb;font-weight:500}
+#fs-root .fg-opt:disabled{opacity:.4}
+#fs-root .fg-detail{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin:0;font-size:17px}
+#fs-root .fg-detail dt{color:var(--dim);font-weight:600}
+#fs-root .fg-detail dd{margin:0;font-weight:800}
+#fs-root .fg-big{font-size:34px;font-weight:800;letter-spacing:.06em;line-height:1}
+#fs-root .fg-line{margin:0;font-size:20px;font-weight:800}
+#fs-root .fg-final{margin:0;font-size:18px;font-weight:700}
+#fs-root .fg-final b{color:var(--gold);font-size:22px}
+#fs-root .fg-tapelist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font-size:15px;overflow:auto}
+#fs-root .fg-tapelist li{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+#fs-root .fg-tapelist .n{color:var(--dim);font-variant-numeric:tabular-nums;min-width:20px;text-align:right}
+#fs-root .fg-tapelist li.peak .t{color:var(--gold)}
+#fs-root .fg-tapelist li.cheeks .t{color:var(--brown-hi)}
+#fs-root .fg-over.peakq{border-top:2px solid var(--gold)}
+#fs-root .fg-over.peakq .fg-big{color:var(--gold)}
+#fs-root .fg-over.cheeksq{border-top:2px solid var(--brown-hi)}
+#fs-root .fg-over.cheeksq .fg-big{color:var(--brown-hi)}
+#fs-root .fg-primary{padding:13px;border-radius:14px;background:var(--gold);color:#1c1405;font-weight:800;font-size:18px;letter-spacing:.14em;text-align:center}
+#fs-root .fs-clone{position:fixed;left:0;top:0;z-index:30;width:52px;height:59px;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;pointer-events:none;transform-origin:50% 50%;
+  background:#18212f;border:1px solid #6b7d99;color:var(--ink);box-shadow:0 10px 22px rgba(0,0,0,.5),0 0 18px rgba(140,205,255,.45)}
+#fs-root .fs-clone .n{font-size:22px;font-weight:800}
+#fs-root .fs-clone .p{font-size:9px;font-weight:700;color:#94a3b8;letter-spacing:.08em}
+#fs-root .fs-clone.gold{background:linear-gradient(160deg,var(--gold-hi),var(--gold) 55%,var(--gold-lo));border-color:var(--gold-hi);color:#1c1405;box-shadow:0 10px 22px rgba(0,0,0,.5),0 0 24px rgba(251,191,36,.7)}
+#fs-root .fs-clone.gold .p{color:#4a3508}
+#fs-root .fs-clone.brown{background:linear-gradient(160deg,var(--brown-hi),var(--brown));border-color:#c69467;color:#fbf1e6}
+#fs-root .fs-clone.brown .p{color:#f1dcc6}
+
+@keyframes fs-idle{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.025)}}
+@keyframes fs-sweep{from{transform:translateX(-180px)}to{transform:translateX(420px)}}
+@keyframes fs-stamp{0%{opacity:0;transform:translate(-50%,-50%) scale(2.2)}18%{opacity:1;transform:translate(-50%,-50%) scale(.94)}30%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.04)}}
+@keyframes fs-flash{0%{opacity:.7}100%{opacity:0}}
+@keyframes fs-quake{0%,100%{transform:translate(0,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(2px,-1px)}75%{transform:translate(-1px,-1px)}}
+@keyframes fs-land{0%{transform:translate(-50%,-50%) scale(1.5)}100%{transform:translate(-50%,-50%) scale(1)}}
+@keyframes fs-ring{from{opacity:.9;transform:scale(.6)}to{opacity:0;transform:scale(1.5)}}
+@keyframes fs-glow{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:0 0 1.8cqw .5cqw rgba(251,191,36,.55)}}
+@keyframes fs-shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes fs-up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes fs-tint-in{from{opacity:0}to{opacity:1}}
+@keyframes fs-abbr-in{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes fs-wave-pop{0%{transform:translate(-50%,-50%) scale(1.45)}100%{transform:translate(-50%,-50%) scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  #fs-root .fs-card.idle,#fs-root .fs-bg::after,#fs-root .fg-chip.landing,#fs-root .fg-chip.fd,#fs-root .fg-sheet,#fs-root .fg-downs.shake,#fs-root .fs-phone.quake .fs-top{animation:none}
+}
+</style>
+<script>
+(() => {
+  const root = document.getElementById("fs-root");
+  const phone = document.getElementById("fs-phone");
+  if (!root || !phone) return;
+
+  const DATA = {"KC":{"o":"15|P.M.|Texas Tech|M;9|K.W.|Michigan St.|M;4|R.R.|SMU|M;1|X.W.|Texas|M;2|T.T.|Baylor|M;87|T.K.|Cincinnati|M;71|J.S.|Ohio State|M;76|K.S.|BYU|M;52|C.H.|Oklahoma|P;65|T.S.|Tennessee|P;77|J.M.|W. Michigan|M","d":"56|G.K.|Purdue|M;91|F.A.U.|Kansas State|C;95|C.J.|Mississippi St.|P;99|P.W.|Clemson|M;32|N.B.|Missouri|M;23|D.T.|Notre Dame|P;5|M.D.|LSU|M;20|N.W.|California|M;8|K.F.|LSU|M;17|A.G.|Notre Dame|M;21|J.H.|Wash. St.|M","b":2},"BUF":{"o":"17|J.A.|Wyoming|P;4|J.C.|Georgia|M;2|D.M.|Maryland|M;10|K.S.|Boise State|M;0|K.C.|Florida State|M;86|D.K.|Utah|M;73|D.D.|Temple|M;63|A.C.|Nevada|M;66|C.M.|Penn State|M;64|O.T.|Florida|M;79|S.B.|Northern Iowa|M","d":"15|G.R.|Miami|M;9|B.C.|N.C. State|M;91|E.O.|Houston|M;96|D.W.|Kentucky|M;8|T.B.|Baylor|M;42|D.W.|Tulane|M;47|C.B.|Villanova|M;1|M.H.|Kentucky|M;23|D.A.|Tusculum College|M;24|C.B.|Utah|M;22|C.G.J.|Florida|M","b":0},"CIN":{"o":"9|J.B.|LSU|P;30|C.B.|Illinois|M;1|J.C.|LSU|P;5|T.H.|Clemson|M;80|A.I.|Princeton|C;88|M.G.|Penn State|M;75|O.B.|Oklahoma|M;63|D.F.|Georgia|M;64|T.K.|Illinois|M;66|D.R.|Kansas State|M;71|A.M.|Georgia|M","d":"94|S.S.|Texas AM|C;53|B.M.|Minnesota|M;97|D.L.|Clemson|M;93|J.A.|Alabama|M;49|B.C.|Clemson|C;44|D.K.|South Carolina|M;0|D.T.|Michigan|M;23|D.H.|Michigan|M;28|J.N.|TCU|C;6|B.C.|Cincinnati|M;27|J.B.|Alabama|M","b":2},"SF":{"o":"13|B.P.|Iowa State|M;23|C.M.|Stanford|P;5|M.E.|Texas AM|M;1|R.P.|Florida|M;19|D.S.|South Carolina|M;85|G.K.|Iowa|P;71|T.W.|Oklahoma|P;75|C.C.|Iowa|C;64|J.B.|UCLA|M;77|D.P.|Kansas|M;68|C.M.|West Virginia|M","d":"97|N.B.|Ohio State|M;98|M.W.|Georgia|M;92|O.O.|UCLA|M;95|A.C.|Texas|C;54|F.W.|BYU|P;57|D.G.|Arkansas|M;2|D.L.|Oregon|M;0|R.G.|Florida State|M;22|N.H.|Illinois|M;27|J.B.|Penn State|C;6|M.M.|Wake Forest|M","b":4},"PHI":{"o":"1|J.H.|Oklahoma|M;26|S.B.|Penn State|M;6|D.S.|Alabama|P;13|D.W.|Virginia|M;9|M.L.|USC|M;88|D.G.|S. Dakota St.|M;68|J.M.|No College|M;69|L.D.|Alabama|M;75|J.M.|Texas|C;56|T.S.|Alabama|M;72|M.B.|Miami|C","d":"3|N.S.|Georgia|M;52|J.G.|Florida|M;98|J.C.|Georgia|M;90|J.D.|Georgia|M;11|J.C.|Alabama|M;53|Z.B.|Wisconsin|P;27|Q.M.|Toledo|P;33|C.D.|Iowa|M;2|R.W.|UTSA|M;24|A.M.|Texas|C;29|M.E.|Wyoming|C","b":5},"DET":{"o":"16|J.G.|California|M;0|J.G.|Alabama|P;14|A.R.S.B.|USC|P;1|J.W.|Alabama|M;18|I.T.|Arkansas|M;87|S.L.|Iowa|M;58|P.S.|Oregon|P;73|C.M.|Boston College|M;64|C.M.|Tennessee|M;69|T.R.|Georgia|M;76|B.M.|Clemson|M","d":"97|A.H.|Michigan|M;98|D.W.|South Carolina|M;54|A.M.|N.C. State|M;91|T.W.|Ohio State|M;46|J.C.|Iowa|M;55|D.B.|Purdue|M;4|D.R.|Kansas State|M;21|R.M.|Auburn|M;2|E.R.|Missouri|C;31|K.J.|Illinois|M;32|B.B.|Alabama|M","b":0},"BAL":{"o":"8|L.J.|Louisville|M;22|D.H.|Alabama|M;4|Z.F.|Boston College|M;7|R.B.|Minnesota|M;6|J.L.|USC|C;89|M.A.|Oklahoma|M;79|R.S.|Notre Dame|M;74|J.S.|Clemson|M;64|C.J.|Nebraska|M;71|V.I.|Penn State|M;70|R.R.|Washington|M","d":"9|Z.Y.|Missouri|M;91|T.H.|FAU|M;92|N.M.|Texas AM|M;93|C.C.|Miami|M;0|R.S.|Georgia|P;32|T.S.|Clemson|M;44|M.H.|Alabama|M;2|N.W.|Clemson|M;3|C.A.|Colorado|M;24|M.S.|Georgia|M;14|K.H.|Notre Dame|P","b":10},"DAL":{"o":"4|D.P.|Mississippi St.|M;33|J.W.|North Carolina|M;88|C.L.|Oklahoma|P;3|G.P.|Georgia|M;19|R.F.|SE Missouri St.|M;87|J.F.|Wisconsin|M;60|T.G.|Oklahoma|M;73|T.S.|Tulsa|P;56|C.B.|Kansas State|M;52|T.B.|Alabama|M;78|T.S.|Texas Tech|M","d":"7|R.G.|Michigan|M;57|M.L.|UCF|M;92|Q.W.|Alabama|M;97|K.C.|UCLA|M;0|D.O.|Texas|M;55|J.B.|Michigan|M;25|J.P.|Penn State|M;2|C.D.|S.C. State|M;26|D.B.|Fresno State|M;24|M.H.|Ohio State|M;34|J.T.|Wash. St.|M","b":2},"GB":{"o":"10|J.L.|Utah State|M;8|J.J.|Alabama|M;9|C.W.|North Dakota St.|M;0|M.G.|Texas|M;11|J.R.|Michigan St.|M;85|T.K.|S. Dakota St.|M;77|J.M.|Arizona|C;72|L.T.|Duke|M;75|S.R.|UCLA|M;70|K.Z.|Wisconsin|M;50|Z.B.B.|Wake Forest|P","d":"90|L.V.N.|Iowa|M;1|M.P.|Penn State|P;98|J.H.|S.C. State|M;95|D.W.|Georgia|M;44|Z.F.|Syracuse|M;56|E.C.|Texas AM|M;25|K.N.|South Carolina|M;21|B.S.J.|Minnesota|M;24|C.V.|Kentucky|M;33|E.W.|Oregon|M;29|X.M.|Alabama|P","b":1},"PIT":{"o":"8|A.R.|California|M;30|J.W.|Oklahoma St.|M;4|D.M.|Ole Miss|M;11|M.P.|USC|M;17|G.B.|Alabama|M;88|P.F.|Penn State|M;76|T.F.|Washington|M;66|M.M.|S. Dakota St.|M;54|Z.F.|West Virginia|P;67|B.H.|Virginia Tech|C;71|M.I.|Arizona St.|M","d":"90|T.W.|Wisconsin|P;56|A.H.|Charlotte|M;97|C.H.|Ohio State|P;69|S.J.D.|Rutgers|M;6|P.Q.|LSU|M;41|P.W.|N.C. State|M;35|J.D.|Auburn|M;27|S.M.B.|Central Michigan|M;26|B.E.|Kentucky|M;5|J.R.|Florida State|P;25|D.E.|Texas|M","b":0},"LV":{"o":"8|K.C.|Michigan St.|M;2|A.J.|Boise State|M;1|T.T.|Cincinnati|M;9|J.N.|Michigan St.|M;18|J.B.|TCU|C;89|B.B.|Georgia|P;74|K.M.|UCLA|M;70|S.B.|UTSA|C;65|T.L.|Iowa|M;58|J.P.J.|Oregon|M;66|T.Z.|Texas AM|M","d":"98|M.C.|Eastern Michigan|P;95|K.P.|Michigan|M;94|F.F.|Connecticut|C;69|A.B.|Vanderbilt|C;17|N.D.|Georgia|M;7|Q.W.|Georgia|M;3|T.J.|Weber State|M;5|E.S.|Georgia|M;28|J.M.|Tennessee|C;31|T.S.|Arizona|M;11|J.C.|S. Illinois|M","b":0},"LA":{"o":"9|M.S.|Georgia|P;23|K.W.|Notre Dame|M;12|P.N.|BYU|P;17|D.A.|Fresno State|P;8|T.A.|Louisville|M;89|T.H.|W. Kentucky|M;77|A.J.|Iowa|M;73|S.A.|TCU|M;65|C.S.|Washington|M;69|K.D.|UL Lafayette|M;71|W.M.|Georgia|M","d":"0|B.Y.|Tennessee|M;95|M.G.|Texas AM|P;99|A.D.|Pittsburgh|P;91|K.T.|Wake Forest|M;53|N.L.|Colorado|M;48|O.S.|LSU|M;22|T.M.|Washington|P;35|J.W.|Wash. St.|M;1|E.F.|Mississippi St.|M;5|K.K.|Miami|M;37|Q.L.|UCLA|M","b":1},"MIA":{"o":"2|M.W.|Liberty|C;28|D.A.|Texas AM|M;6|M.W.|Virginia|C;1|J.T.|South Alabama|C;7|C.D.|Texas Tech|C;85|G.D.|UCLA|C;52|P.P.|Houston|M;74|K.P.|Alabama|M;55|A.B.|Texas State|P;71|J.S.|Arizona|C;73|A.J.|USC|M","d":"44|C.R.|Penn State|C;9|J.U.|Michigan|M;92|Z.S.|Ferris State|M;78|K.G.|Michigan|M;10|J.R.|Texas Tech|M;20|J.B.|Texas Tech|M;3|C.J.|San Diego St.|M;22|D.B.|Ga. Southern|C;8|J.B.|Kansas State|C;16|M.T.|Texas|C;19|K.L.|Pittsburgh|C","b":5},"HOU":{"o":"7|C.S.|Ohio State|M;32|D.M.|Iowa State|M;12|N.C.|Michigan|M;14|K.B.|LSU|M;1|T.D.|Houston|M;86|D.S.|Stanford|M;79|A.E.|Minnesota|C;75|W.T.|Virginia Tech|M;63|E.B.|SMU|M;69|E.I.|LSU|M;71|B.S.|Auburn|M","d":"51|W.A.|Alabama|P;55|D.H.|LSU|P;98|S.R.|Louisville|M;72|T.T.|Ohio State|M;0|A.A.S.|FAU|M;39|H.T.|Alabama|M;24|D.S.|LSU|P;5|J.P.|Baylor|M;3|K.L.|Georgia|M;2|C.B.|USC|M;6|R.B.|Mid Tenn St.|M","b":0}};
+  const ALL = [["ARI","Arizona","Cardinals","#97233F"],["ATL","Atlanta","Falcons","#A71930"],["BAL","Baltimore","Ravens","#9E7C0C"],["BUF","Buffalo","Bills","#8099c6"],["CAR","Carolina","Panthers","#0085CA"],["CHI","Chicago","Bears","#E64100"],["CIN","Cincinnati","Bengals","#FB4F14"],["CLE","Cleveland","Browns","#FF3C00"],["DAL","Dallas","Cowboys","#B0B7BC"],["DEN","Denver","Broncos","#FB4F14"],["DET","Detroit","Lions","#0076B6"],["GB","Green Bay","Packers","#FFB612"],["HOU","Houston","Texans","#819097"],["IND","Indianapolis","Colts","#a5acaf"],["JAX","Jacksonville","Jaguars","#006778"],["KC","Kansas City","Chiefs","#E31837"],["LA","Los Angeles","Rams","#FFD100"],["LAC","Los Angeles","Chargers","#007BC7"],["LV","Las Vegas","Raiders","#A5ACAF"],["MIA","Miami","Dolphins","#008E97"],["MIN","Minnesota","Vikings","#a28ad0"],["NE","New England","Patriots","#8091a2"],["NO","New Orleans","Saints","#D3BC8D"],["NYG","New York","Giants","#8591b2"],["NYJ","New York","Jets","#809f96"],["PHI","Philadelphia","Eagles","#5fa0a8"],["PIT","Pittsburgh","Steelers","#FFB612"],["SEA","Seattle","Seahawks","#69be28"],["SF","San Francisco","49ers","#B3995D"],["TB","Tampa Bay","Buccaneers","#A71930"],["TEN","Tennessee","Titans","#4495D2"],["WAS","Washington","Commanders","#FFB612"]];
+
+  const TEAM = Object.fromEntries(ALL.map(([ab, city, name, col]) => [ab, { city, name, col }]));
+  const DEAL = Object.keys(DATA);
+  const OFF_KEYS = ["QB", "HB", "WR1", "WR2", "WR3", "TE", "LT", "LG", "C", "RG", "RT"];
+  const OFF_LBL = ["QB", "HB", "WR", "WR", "WR", "TE", "LT", "LG", "C", "RG", "RT"];
+  const DEF_KEYS = ["LEDG", "REDG", "DT1", "DT2", "MIKE", "WILL", "CB1", "CB2", "CB3", "FS", "SS"];
+  const DEF_LBL = ["EDGE", "EDGE", "DT", "DT", "MIKE", "WILL", "CB", "CB", "CB", "FS", "SS"];
+  const WEIGHT = { common: 3, skill: 2, jack: 1 };
+  const TURNOVER = 70, PEAK_QUARTER = 8;
+  const FULL_CHARGE_MS = 1400;
+  const ROASTS = ["The house has notes.", "Starting. Somehow.", "Bold depth chart.", "Thoughts and prayers.", "His mom is the scout.", "A brave choice."];
+  const FIELD = {
+    off: { WR1: [5.5, 57], LT: [29, 57], LG: [39.5, 57], C: [50, 57], RG: [60.5, 57], RT: [71, 57], TE: [81.5, 57], WR3: [16, 63.5], WR2: [94.5, 63.5], QB: [50, 71], HB: [50, 86] },
+    def: { FS: [35, 9], SS: [65, 9], MIKE: [43, 28], WILL: [57, 28], CB3: [16, 34], CB1: [5.5, 38.5], CB2: [94.5, 38.5], REDG: [27, 43], DT1: [42, 43], DT2: [58, 43], LEDG: [73, 43] },
+  };
+  const HAPTIC = { charge0: [10], charge1: [15, 30, 15], charge2: [20, 30, 20, 30, 20], charge3: [30, 30, 30, 30, 30, 60], kick: [14, 18, 22], perfect: [10, 30, 10, 30, 80], peak: [20, 40, 20, 40, 90], cheeks: [160], land: [35], flat: [28], tick: [8] };
+
+  const rnd = (n) => Math.floor(Math.random() * n);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const fullName = (ab) => TEAM[ab].city + " " + TEAM[ab].name;
+  const where = (si, s) => (si ? "DEF " : "OFF ") + s.lbl;
+  const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const buzz = (p) => { try { navigator.vibrate?.(p); } catch (e) { /* not available here */ } };
+
+  // ---------- game engine ----------
+  function parseSide(str, keys, lbls, best, isOff) {
+    return str.split(";").map((row, i) => {
+      const [num, ini, col, st] = row.split("|");
+      const cls = isOff ? (i === 0 ? "jack" : i <= 5 ? "skill" : "common") : (i === best ? "jack" : "common");
+      return { key: keys[i], lbl: lbls[i], num, ini, col, st, cls, layer: 0, fd: false, sealed: false, ghost: false, anim: false, pending: false };
+    });
+  }
+  function deal(g) {
+    const a = DEAL[rnd(DEAL.length)];
+    let b = a;
+    while (b === a) b = DEAL[rnd(DEAL.length)];
+    g.Q = {
+      sides: [
+        { key: "off", name: "OFFENSE", team: a, slots: parseSide(DATA[a].o, OFF_KEYS, OFF_LBL, -1, true), solved: false, out: [] },
+        { key: "def", name: "DEFENSE", team: b, slots: parseSide(DATA[b].d, DEF_KEYS, DEF_LBL, DATA[b].b, false), solved: false, out: [] },
+      ],
+      spins: 0, downs: 4, wrong: 0, noHuddle: false, film: false, over: null, shake: false,
+    };
+    g.log = [];
+    g.sheet = null;
+    g.saying = "Q" + g.q + ": two teams are hiding. <b>Hold the card.</b>";
+  }
+  function eligible(Q) {
+    const out = [];
+    Q.sides.forEach((S, si) => {
+      if (S.solved) return;
+      const open = (s) => !s.fd && !s.sealed && !s.pending;
+      const fresh = S.slots.filter((s) => open(s) && s.layer === 0);
+      const pool = fresh.length ? fresh : S.slots.filter((s) => open(s) && s.layer > 0 && s.layer < 3);
+      pool.forEach((s) => out.push({ si, s }));
+    });
+    return out;
+  }
+  function choose(Q) {
+    const pool = eligible(Q);
+    if (!pool.length) return null;
+    let r = Math.random() * pool.reduce((a, x) => a + WEIGHT[x.s.cls], 0);
+    for (const x of pool) { r -= WEIGHT[x.s.cls]; if (r <= 0) return x; }
+    return pool[pool.length - 1];
+  }
+  function planReveal(si, s) {
+    s.pending = true;
+    if (s.layer === 0 && s.st === "P") return { si, s, kind: "fd", face: "gold", num: "▲", sub: "PEAK", toast: "PEAK at " + where(si, s) + ". Face-down: tap it on the field." };
+    if (s.layer === 0) {
+      const cheeks = s.st === "C";
+      return { si, s, kind: cheeks ? "cheeks" : "lit", face: cheeks ? "brown" : "plain", num: "#" + s.num, sub: cheeks ? "CHEEKS" : "", toast: where(si, s) + " #" + s.num + (cheeks ? ". CHEEKS. " + ROASTS[rnd(ROASTS.length)] : "") };
+    }
+    if (s.layer === 1) return { si, s, kind: "lit", face: "plain", num: "#" + s.num, sub: s.ini, toast: where(si, s) + " #" + s.num + " is " + s.ini + "." };
+    return { si, s, kind: "lit", face: "plain", num: "#" + s.num, sub: s.col, toast: where(si, s) + " #" + s.num + " played at " + s.col + (s.col.endsWith(".") ? "" : ".") };
+  }
+  function commit(s, p) {
+    s.pending = false;
+    if (p.kind === "fd") s.fd = true;
+    else s.layer = Math.min(3, s.layer + 1);
+    s.anim = true;
+  }
+  function revealSide(S) { S.slots.forEach((s) => { if (!s.fd && !s.sealed && s.layer === 0) s.ghost = true; }); }
+  function end(g, kind) {
+    const Q = g.Q;
+    let banked = 0;
+    Q.sides.forEach((S) => { S.slots.forEach((s) => { if (s.fd) { s.fd = false; banked++; } }); revealSide(S); });
+    g.chips += banked;
+    const score = kind === "solved" ? Q.spins : TURNOVER;
+    g.total += score;
+    Q.over = { kind, score, banked };
+    g.sheet = null;
+  }
+  // the call stands: full review spectacle — CONFIRMED, the wave, the flood, the confetti
+  async function celebrateCall(si) {
+    const rm = reduceMotion();
+    stamp(0, "CONFIRMED.", "confirmed");
+    sfx.fanfare(); buzz(HAPTIC.peak);
+    const tint = phone.querySelector(`.fg-tint.${si ? "top" : "bot"}`);
+    if (tint) tint.classList.add("enter");
+    await sleep(rm ? 0 : 300);
+    let chips = [...phone.querySelectorAll(`.fg-chip[data-si="${si}"]`)];
+    if (si === 0) chips.reverse(); // offense wave ends on the QB
+    chips.forEach((el, i) => setTimeout(() => { el.classList.add("wave"); sfx.waveTick(i); if (i % 3 === 0) buzz(HAPTIC.tick); }, rm ? 0 : i * 75));
+    await sleep(rm ? 60 : chips.length * 75 + 260);
+    const f = phone.querySelector(".fg-field").getBoundingClientRect(), pr = phone.getBoundingClientRect();
+    burstAt(f.left - pr.left + f.width / 2, f.top - pr.top + (si ? f.height * 0.25 : f.height * 0.75), ["#fde68a", "#fbbf24", "#fff7d6"], false);
+    await sleep(rm ? 0 : 380);
+  }
+  // the wrong call: dead air, one gray no., nothing else
+  async function flatNo() {
+    await sleep(reduceMotion() ? 120 : 380);
+    stamp(1, "no.", "flat");
+    sfx.thunk(); buzz(HAPTIC.flat);
+    await sleep(reduceMotion() ? 200 : 750);
+  }
+  async function call(g, si, ab) {
+    const Q = g.Q, S = Q.sides[si];
+    if (Q.over || S.solved || g.busy) return;
+    g.busy = true;
+    updateAction();
+    if (ab === S.team) {
+      S.solved = true; revealSide(S);
+      g.saying = "CALLED IT. " + esc(S.name + ": " + fullName(ab)) + ".";
+      g.log.unshift({ n: Q.spins, kind: "peak", text: "CALLED IT: the " + S.name.toLowerCase() + " is " + fullName(ab) + "." });
+      render();
+      await celebrateCall(si);
+      if (Q.sides.every((x) => x.solved)) end(g, "solved");
+    } else {
+      S.out.push(ab); Q.downs--; Q.wrong++; Q.shake = true;
+      g.saying = "NOPE. Not " + esc(ab) + ". " + Q.downs + (Q.downs === 1 ? " down" : " downs") + " left.";
+      g.log.unshift({ n: Q.spins, kind: "cheeks", text: "Wrong call: the " + S.name.toLowerCase() + " is not " + ab + "." });
+      render();
+      await flatNo();
+      if (Q.downs <= 0) end(g, "turnover");
+    }
+    g.busy = false;
+    render();
+  }
+  function applyPlay(g, play) {
+    const Q = g.Q;
+    if (play === "nohuddle") { Q.noHuddle = true; g.saying = "NO-HUDDLE: your next pull lands <b>two slots</b> for one."; }
+    else if (play === "film") { Q.film = true; g.saying = "FILM STUDY: tap any lit slot to see his initials."; }
+    else if (play === "flag" && Q.wrong > 0) { Q.wrong--; Q.downs++; g.saying = "CHALLENGE FLAG: call overturned. Down restored."; }
+  }
+
+  // ---------- sketch audio ----------
+  let AC = null, soundOn = true, riser = null;
+  function ac() {
+    if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+    if (AC && AC.state === "suspended") AC.resume().catch(() => {});
+    return AC;
+  }
+  function tone(freq, t0, dur, type = "sine", vol = 0.12, slide = 0) {
+    const c = ac(); if (!c || !soundOn) return;
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(dur, vol, hp) {
+    const c = ac(); if (!c || !soundOn) return;
+    const len = Math.max(1, Math.floor(c.sampleRate * dur));
+    const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    src.buffer = buf; f.type = "highpass"; f.frequency.value = hp; g.gain.value = vol;
+    src.connect(f).connect(g).connect(c.destination); src.start();
+  }
+  function riserStart() {
+    const c = ac(); if (!c || !soundOn || riser) return;
+    const o = c.createOscillator(), lp = c.createBiquadFilter(), g = c.createGain();
+    o.type = "sawtooth"; o.frequency.value = 90; lp.type = "lowpass"; lp.frequency.value = 400;
+    g.gain.value = 0.0001; g.gain.setTargetAtTime(0.045, c.currentTime, 0.08);
+    o.connect(lp).connect(g).connect(c.destination); o.start();
+    riser = { o, lp, g };
+  }
+  function riserUpdate(level, breath) {
+    if (!riser || !AC) return;
+    const t = AC.currentTime;
+    riser.o.frequency.setTargetAtTime(90 * Math.pow(4, level), t, 0.05);
+    riser.lp.frequency.setTargetAtTime(400 + level * 2600, t, 0.05);
+    riser.g.gain.setTargetAtTime(0.03 + 0.035 * level * (0.55 + 0.45 * Math.max(0, breath)), t, 0.03);
+  }
+  function riserStop() {
+    if (!riser || !AC) return;
+    const r = riser, t = AC.currentTime; riser = null;
+    r.g.gain.cancelScheduledValues(t); r.g.gain.setTargetAtTime(0.0001, t, 0.015); r.o.stop(t + 0.12);
+  }
+  const sfx = {
+    tick: () => tone(1400 + rnd(600), 0, 0.03, "square", 0.025),
+    whoosh: () => tone(300, 0, 0.4, "sawtooth", 0.045, 900),
+    thud: () => { tone(90, 0, 0.16, "sine", 0.28, -40); tone(55, 0.02, 0.2, "sine", 0.2); },
+    kick: () => { tone(70, 0, 0.25, "sine", 0.35, -30); noise(0.08, 0.05, 800); },
+    boom: () => { noise(0.35, 0.08, 120); tone(48, 0, 0.4, "sine", 0.3, -15); },
+    crackle: () => noise(0.025 + Math.random() * 0.03, 0.03, 2500),
+    perfect: () => { tone(1320, 0, 0.18, "triangle", 0.08); tone(1760, 0.06, 0.2, "triangle", 0.08); tone(2640, 0.12, 0.35, "triangle", 0.07); },
+    gold: () => { tone(660, 0, 0.3, "triangle", 0.1); tone(880, 0.09, 0.35, "triangle", 0.1); tone(1320, 0.18, 0.45, "triangle", 0.08); },
+    droop: () => { tone(300, 0, 0.35, "sawtooth", 0.07, -160); tone(150, 0.25, 0.5, "sawtooth", 0.07, -70); },
+    call: () => { tone(520, 0, 0.12, "triangle", 0.1); tone(780, 0.1, 0.2, "triangle", 0.1); },
+    buzz: () => tone(140, 0, 0.3, "square", 0.07, -30),
+    fanfare: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.09, 0.34, "triangle", 0.09)); tone(1568, 0.36, 0.5, "triangle", 0.06); noise(0.3, 0.02, 5000); },
+    waveTick: (i) => tone(480 + i * 42, 0, 0.09, "triangle", 0.07),
+    thunk: () => { tone(105, 0, 0.08, "square", 0.05); tone(70, 0.03, 0.1, "sine", 0.09); },
+  };
+
+  // ---------- screen ----------
+  phone.innerHTML = `<div class="fs-top"></div>
+    <div class="fs-action">
+      <div class="fs-bg" aria-hidden="true"></div>
+      <div class="fs-stage">
+        <div class="fs-card idle" aria-label="The deck. Press and hold to charge, release to pull."><div class="fs-face back"><span class="fs-lbl"></span><span class="fs-big"></span><span class="fs-sub"></span></div></div>
+        <div class="fs-stamp s1" aria-hidden="true"></div><div class="fs-stamp s2" aria-hidden="true"></div>
+      </div>
+      <div class="fs-say" aria-live="polite"></div>
+      <div class="fs-spinrow">
+        <button type="button" class="fs-spin cursor-interaction" data-act="spin">HOLD<small>RELEASE TO PULL</small></button>
+        <button type="button" class="fs-mute cursor-interaction" data-act="mute" aria-label="Mute sketch audio">♪</button>
+      </div>
+    </div>
+    <div class="fs-vig" aria-hidden="true"></div>
+    <canvas class="fs-fx" aria-hidden="true"></canvas>
+    <div class="fs-flash" aria-hidden="true"></div>
+    <div class="fs-sheets"></div>`;
+  const top = phone.querySelector(".fs-top"), sheets = phone.querySelector(".fs-sheets");
+  const card = phone.querySelector(".fs-card"), face = card.querySelector(".fs-face");
+  const vig = phone.querySelector(".fs-vig"), flashEl = phone.querySelector(".fs-flash");
+  const sayEl = phone.querySelector(".fs-say"), spinBtn = phone.querySelector(".fs-spin"), muteBtn = phone.querySelector(".fs-mute");
+  const stamps = [phone.querySelector(".fs-stamp.s1"), phone.querySelector(".fs-stamp.s2")];
+  const fx = { cv: phone.querySelector(".fs-fx"), ctx: null, w: 0, h: 0, parts: [], rings: [], bits: [], running: false, last: 0 };
+  fx.ctx = fx.cv.getContext("2d");
+
+  function setFace(lbl, big, sub) {
+    face.querySelector(".fs-lbl").textContent = lbl;
+    face.querySelector(".fs-big").textContent = big;
+    face.querySelector(".fs-sub").textContent = sub;
+  }
+  function stamp(i, text, kind) {
+    const el = stamps[i];
+    el.className = "fs-stamp s" + (i + 1);
+    el.textContent = text;
+    void el.offsetWidth;
+    el.className = "fs-stamp s" + (i + 1) + " go " + kind;
+  }
+  function flash() { flashEl.classList.remove("go"); void flashEl.offsetWidth; flashEl.classList.add("go"); }
+  function resetCard() {
+    card.style.transition = "transform .32s cubic-bezier(.2,1.4,.4,1), opacity .2s";
+    card.style.opacity = "1";
+    card.style.transform = "";
+    card.style.setProperty("--glow", "0.15");
+    face.className = "fs-face back";
+    setFace("THE DECK", "?", "HOLD ME");
+    card.classList.add("idle");
+  }
+
+  const G = { q: 1, total: 0, chips: 0, perfects: 0, busy: false };
+  deal(G);
+
+  function chip(si, i, xy) {
+    const Q = G.Q, S = Q.sides[si], s = S.slots[i];
+    const known = S.solved || !!Q.over;
+    let cls = "fg-chip", inner = `<span class="pos">${s.lbl}</span>`, label = S.name + " " + s.lbl, tap = false;
+    if (s.sealed) { cls += " sealed"; inner += `<span class="num">–</span>`; label += ", spent"; }
+    else if (s.fd) { cls += " fd"; inner += `<span class="num">▲</span><span class="ini">PEAK</span>`; label += ", face-down PEAK, tap to decide"; tap = true; }
+    else if (s.layer > 0) {
+      cls += " lit" + (s.st === "P" ? " peak" : s.st === "C" ? " cheeks" : "");
+      inner += `<span class="num">${s.num}</span>`;
+      if (s.layer >= 2) inner += `<span class="ini">${esc(s.ini)}${s.layer >= 3 ? "•" : ""}</span>`;
+      if (s.st === "P") inner += `<span class="mark" aria-hidden="true">▲</span>`;
+      if (s.st === "C") inner += `<span class="mark" aria-hidden="true">▼</span>`;
+      label += ", number " + s.num + (s.layer >= 2 ? ", initials " + s.ini : "");
+      tap = true;
+    }
+    else if (s.ghost) { cls += " ghost"; inner += `<span class="num">${s.num}</span>`; label += ", number " + s.num; tap = true; }
+    if (known) cls += " known";
+    if (Q.film && !Q.over && s.layer >= 1 && s.layer < 3 && !s.fd && !s.sealed) cls += " filmable";
+    if (s.anim) cls += " landing";
+    const style = `left:${xy[0]}%;top:${xy[1]}%;` + (known ? `--team:${TEAM[S.team].col};` : "");
+    return tap
+      ? `<button type="button" class="${cls} cursor-interaction" style="${style}" data-act="slot" data-si="${si}" data-i="${i}" aria-label="${esc(label)}">${inner}</button>`
+      : `<div class="${cls}" style="${style}" data-si="${si}" data-i="${i}" role="img" aria-label="${esc(label)}">${inner}</div>`;
+  }
+  function barWho(si) {
+    const S = G.Q.sides[si], known = S.solved || !!G.Q.over;
+    return known ? `<span class="who on" style="--team:${TEAM[S.team].col}">${esc(fullName(S.team))}${S.solved ? " ✓" : ""}</span>` : `<span class="who">?</span>`;
+  }
+  function barCall(si) {
+    const S = G.Q.sides[si];
+    return S.solved || G.Q.over ? "" : `<button type="button" class="fg-call cursor-interaction" data-act="call" data-si="${si}">CALL</button>`;
+  }
+  function hud() {
+    const Q = G.Q;
+    const pips = [0, 1, 2, 3].map((k) => `<i class="${k < Q.downs ? "" : "off"}"></i>`).join("");
+    return `<div class="fg-hud"><span class="fg-q">Q${G.q}</span>
+      <span class="fg-downs${Q.shake ? " shake" : ""}" role="img" aria-label="${Q.downs} downs left">${pips}</span>
+      <span class="fg-stat"><small>SPINS</small>${Q.spins}</span>
+      <span class="fg-stat"><small>GAME</small>${G.total + (Q.over ? 0 : Q.spins)}</span>
+      <button type="button" class="fg-chips cursor-interaction" data-act="bank" ${G.chips && !Q.over ? "" : "disabled"} aria-label="${G.chips} banked chips">◆ ${G.chips}</button></div>`;
+  }
+  function sheet() {
+    const Q = G.Q, sh = G.sheet;
+    if (!sh) return Q.over ? overSheet() : "";
+    let title = "", body = "";
+    if (sh.type === "call") {
+      const S = Q.sides[sh.si], other = Q.sides[1 - sh.si];
+      title = "CALL THE " + S.name;
+      body = `<div class="fg-teams">${ALL.map(([ab, city, name, col]) => {
+        const dead = S.out.includes(ab) || (other.solved && other.team === ab);
+        return `<button type="button" class="fg-team cursor-interaction" data-act="pick" data-ab="${ab}" style="--team:${col}" ${dead ? "disabled" : ""}><b>${ab}</b><small>${esc(name)}</small></button>`;
+      }).join("")}</div><p class="fg-note">A wrong call burns a down. ${Q.downs} left.</p>`;
+    } else if (sh.type === "fd") {
+      const S = Q.sides[sh.si], s = S.slots[sh.i];
+      title = "PEAK · " + S.name + " " + s.lbl;
+      body = `<p class="fg-note">One of the top 3 in the league at his spot. Who is it?</p>
+        <button type="button" class="fg-opt cursor-interaction" data-act="fd-play"><b>PLAY IT</b><small>Flip it: number and initials, right now.</small></button>
+        <button type="button" class="fg-opt cursor-interaction" data-act="fd-spend"><b>SPEND IT</b><small>Use it on a play. This slot stays sealed.</small></button>
+        <button type="button" class="fg-opt cursor-interaction" data-act="close"><b>LEAVE IT</b><small>It banks as a chip when the quarter ends.</small></button>`;
+    } else if (sh.type === "plays") {
+      title = sh.src === "bank" ? "SPEND A CHIP" : "SPEND THE PEAK";
+      const flagOk = Q.wrong > 0;
+      body = `<button type="button" class="fg-opt cursor-interaction" data-act="play" data-play="nohuddle" ${Q.noHuddle ? "disabled" : ""}><b>NO-HUDDLE</b><small>Your next pull lands two slots and counts as one.</small></button>
+        <button type="button" class="fg-opt cursor-interaction" data-act="play" data-play="film" ${Q.film ? "disabled" : ""}><b>FILM STUDY</b><small>See the initials on any lit slot.</small></button>
+        <button type="button" class="fg-opt cursor-interaction" data-act="play" data-play="flag" ${flagOk ? "" : "disabled"}><b>CHALLENGE FLAG</b><small>${flagOk ? "Overturn a wrong call. Get the down back." : "Needs a wrong call this quarter."}</small></button>`;
+    } else if (sh.type === "detail") {
+      const S = Q.sides[sh.si], s = S.slots[sh.i], known = S.solved || !!Q.over;
+      title = S.name + " · " + s.lbl;
+      const verdict = s.st === "P" ? "PEAK (top 3 at his spot)" : s.st === "C" ? "CHEEKS (bottom 3 at his spot)" : "MID";
+      body = `<dl class="fg-detail"><dt>Number</dt><dd>#${s.num}</dd><dt>Initials</dt><dd>${known || s.layer >= 2 ? esc(s.ini) : "pull deeper"}</dd><dt>College</dt><dd>${known || s.layer >= 3 ? esc(s.col) : "pull deeper"}</dd><dt>Verdict</dt><dd>${verdict}</dd></dl>`;
+    } else if (sh.type === "tape") {
+      title = "THE TAPE";
+      body = `<ol class="fg-tapelist">${G.log.slice(0, 14).map((r) => `<li class="${r.kind}"><span class="n">${r.n || "–"}</span><span class="t">${esc(r.text)}</span></li>`).join("") || `<li><span class="t">Nothing yet. Hold the card.</span></li>`}</ol>`;
+    }
+    return `<div class="fg-scrim" data-act="close"></div><div class="fg-sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="fg-sh-head"><span>${esc(title)}</span><button type="button" class="fg-x cursor-interaction" data-act="close">CLOSE</button></div>${body}</div>`;
+  }
+  function overSheet() {
+    const Q = G.Q, o = Q.over;
+    const peakQ = o.kind === "solved" && o.score <= PEAK_QUARTER;
+    const cls = o.kind === "turnover" ? " cheeksq" : peakQ ? " peakq" : "";
+    const head = o.kind === "turnover" ? "TURNOVER ON DOWNS" : peakQ ? "PEAK QUARTER" : "Q" + G.q + " FINAL";
+    const line = o.kind === "turnover" ? `This quarter scores ${o.score}.` : `${o.score} spins.`;
+    const bank = o.banked ? `<p class="fg-note">+${o.banked} chip${o.banked > 1 ? "s" : ""} banked from face-down PEAKs.</p>` : "";
+    const who = `<p class="fg-note">OFFENSE: ${esc(fullName(Q.sides[0].team))} · DEFENSE: ${esc(fullName(Q.sides[1].team))}</p>`;
+    const perf = G.perfects ? `<p class="fg-note">PERFECT releases this game: ${G.perfects}</p>` : "";
+    const fin = G.q >= 4
+      ? `<p class="fg-final">FINAL: ${G.total} spins − ${G.chips} chips = <b>${G.total - G.chips}</b></p>${perf}<button type="button" class="fg-primary cursor-interaction" data-act="newgame">NEW GAME</button>`
+      : `${perf}<button type="button" class="fg-primary cursor-interaction" data-act="next">NEXT QUARTER</button>`;
+    return `<div class="fg-sheet fg-over${cls}" role="dialog" aria-label="${esc(head)}"><div class="fg-big">${head}</div><p class="fg-line">${line}</p>${who}${bank}${fin}</div>`;
+  }
+  function updateAction() {
+    const Q = G.Q;
+    sayEl.innerHTML = G.saying || "";
+    spinBtn.disabled = !!Q.over || G.busy || (!C.active && eligible(Q).length === 0);
+    spinBtn.innerHTML = C.active ? "CHARGING<small>LET GO TO PULL</small>" : Q.noHuddle ? "HOLD<small>NO-HUDDLE ×2</small>" : Q.film ? "HOLD<small>FILM: TAP A SLOT</small>" : "HOLD<small>RELEASE TO PULL</small>";
+    spinBtn.classList.toggle("held", C.active);
+    muteBtn.textContent = soundOn ? "♪" : "✕";
+    muteBtn.classList.toggle("off", !soundOn);
+    muteBtn.setAttribute("aria-label", soundOn ? "Mute sketch audio" : "Unmute sketch audio");
+  }
+  function render() {
+    const Q = G.Q;
+    let h = hud();
+    h += `<div class="fg-bar"><span class="side">DEFENSE</span>${barWho(1)}<button type="button" class="fg-tape cursor-interaction" data-act="tape">TAPE</button>${barCall(1)}</div>`;
+    h += `<div class="fg-field"><div class="fg-los" aria-hidden="true"></div><span class="fg-flabel top" aria-hidden="true">DEFENSE</span><span class="fg-flabel bot" aria-hidden="true">OFFENSE</span>`;
+    [1, 0].forEach((si) => {
+      const S = Q.sides[si];
+      if (S.solved || Q.over) h += `<div class="fg-tint ${si ? "top" : "bot"}" style="--team:${TEAM[S.team].col}" aria-hidden="true"><span>${S.team}</span></div>`;
+      S.slots.forEach((s, i) => { h += chip(si, i, FIELD[S.key][s.key]); });
+    });
+    h += `</div><div class="fg-bar"><span class="side">OFFENSE</span>${barWho(0)}${barCall(0)}</div>`;
+    top.innerHTML = h;
+    sheets.innerHTML = sheet();
+    Q.sides.forEach((S) => S.slots.forEach((s) => { s.anim = false; }));
+    Q.shake = false;
+    updateAction();
+  }
+
+  // ---------- the charge: the card breathes in the universe ----------
+  const C = { active: false, t0: 0, last: 0, level: 0, phase: 0, hap: -1, over: false };
+  function fxSize() {
+    const r = phone.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    fx.w = r.width; fx.h = r.height;
+    fx.cv.width = Math.round(r.width * dpr); fx.cv.height = Math.round(r.height * dpr);
+    fx.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function cardCenter() {
+    const pr = phone.getBoundingClientRect(), cr = card.getBoundingClientRect();
+    return { x: cr.left - pr.left + cr.width / 2, y: cr.top - pr.top + cr.height / 2, r: Math.max(cr.width, cr.height) / 2 };
+  }
+  function spawn(p, tgt) {
+    let x, y, k = 0;
+    do { x = Math.random() * fx.w; y = Math.random() * fx.h; k++; } while (k < 8 && Math.hypot(x - tgt.x, y - tgt.y) < 150);
+    return Object.assign(p, { x, y, vx: 0, vy: 0, s: 0.6 + Math.random() * 0.8, gold: Math.random() < 0.35 });
+  }
+  function fxKick() { if (!fx.running) { fx.running = true; fx.last = performance.now(); requestAnimationFrame(fxLoop); } }
+  function chargeFrame(now) {
+    const el = now - C.t0, dt = now - C.last; C.last = now;
+    C.level = Math.min(1, el / FULL_CHARGE_MS);
+    C.over = el > FULL_CHARGE_MS;
+    C.phase += (dt / 1000) * (0.9 + C.level * 2.1) * Math.PI * 2;
+    const breath = Math.sin(C.phase), rm = reduceMotion();
+    const scale = rm ? 1 : 1 + C.level * 0.5 + breath * (0.015 + C.level * 0.05);
+    const shiver = C.over && !rm ? (Math.random() - 0.5) * 2.4 : 0;
+    card.style.transform = `translate(${shiver.toFixed(2)}px, ${(rm ? 0 : -C.level * 26).toFixed(1)}px) scale(${scale.toFixed(4)})`;
+    card.style.setProperty("--glow", Math.min(1.25, 0.15 + C.level * 0.85 + Math.max(0, breath) * 0.22 * C.level).toFixed(3));
+    const cc = cardCenter();
+    vig.style.setProperty("--cx", cc.x + "px"); vig.style.setProperty("--cy", cc.y + "px");
+    vig.style.opacity = (C.level * 0.82).toFixed(3);
+    const hl = el < 350 ? 0 : el < 700 ? 1 : el < 1050 ? 2 : 3;
+    if (hl !== C.hap) { buzz(HAPTIC["charge" + hl]); if (C.hap >= 0) sfx.tick(); C.hap = hl; }
+    face.querySelector(".fs-sub").textContent = C.over ? "LET GO" : "CHARGING";
+    riserUpdate(C.level, breath);
+    return cc;
+  }
+  function fxLoop(now) {
+    const k = Math.min(3, (now - fx.last) / 16.7); fx.last = now;
+    const ctx = fx.ctx;
+    ctx.clearRect(0, 0, fx.w, fx.h);
+    if (C.active) {
+      const tgt = chargeFrame(now);
+      if (!reduceMotion()) {
+        const lvl = C.level, inhale = 0.5 + 0.5 * Math.cos(C.phase);
+        const pull = (0.035 + lvl * lvl * 0.3) * (0.4 + inhale), swirl = 0.025 + lvl * 0.05;
+        ctx.lineCap = "round";
+        for (const p of fx.parts) {
+          const dx = tgt.x - p.x, dy = tgt.y - p.y, d = Math.hypot(dx, dy) || 1;
+          p.vx = (p.vx + ((dx / d) * pull * p.s + (-dy / d) * swirl) * k) * 0.955;
+          p.vy = (p.vy + ((dy / d) * pull * p.s + (dx / d) * swirl) * k) * 0.955;
+          p.x += p.vx * k; p.y += p.vy * k;
+          if (d < tgt.r * 0.55) { spawn(p, tgt); continue; }
+          const sp = Math.hypot(p.vx, p.vy), a = Math.min(1, 0.15 + sp * 0.12) * (0.35 + lvl * 0.65);
+          ctx.strokeStyle = p.gold && lvl > 0.7 ? `rgba(253,230,138,${a.toFixed(3)})` : `rgba(140,205,255,${a.toFixed(3)})`;
+          ctx.lineWidth = 1 + lvl * 1.2;
+          const tail = 3 + lvl * 4;
+          ctx.beginPath(); ctx.moveTo(p.x - p.vx * tail, p.y - p.vy * tail); ctx.lineTo(p.x, p.y); ctx.stroke();
+        }
+        if (lvl > 0.55) {
+          ctx.strokeStyle = "rgba(220,240,255,0.85)"; ctx.lineWidth = 1.4; ctx.shadowColor = "rgba(140,205,255,0.9)"; ctx.shadowBlur = 8;
+          const n = lvl >= 1 ? 4 : 2;
+          for (let i = 0; i < n; i++) {
+            if (Math.random() < 0.35) continue;
+            let ang = Math.random() * Math.PI * 2, r = tgt.r * 0.9;
+            ctx.beginPath(); ctx.moveTo(tgt.x + Math.cos(ang) * r, tgt.y + Math.sin(ang) * r);
+            for (let s = 0; s < 5; s++) { r += 7 + Math.random() * 6; ang += (Math.random() - 0.5) * 0.5; ctx.lineTo(tgt.x + Math.cos(ang) * r, tgt.y + Math.sin(ang) * r); }
+            ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+          if (Math.random() < 0.07 * lvl) sfx.crackle();
+        }
+        if (lvl >= 1) {
+          const ph = (now % 600) / 600;
+          ctx.strokeStyle = `rgba(200,235,255,${(0.5 * (1 - ph)).toFixed(3)})`; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(tgt.x, tgt.y, tgt.r + ph * 46, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    }
+    fx.rings = fx.rings.filter((rg) => {
+      const t = (now - rg.t0) / rg.dur;
+      if (t >= 1) return false;
+      if (t < 0) return true;
+      ctx.strokeStyle = `rgba(${rg.col},${((1 - t) * 0.75).toFixed(3)})`; ctx.lineWidth = 2 + rg.w * (1 - t);
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r0 + t * rg.r1, 0, Math.PI * 2); ctx.stroke();
+      return true;
+    });
+    fx.bits = fx.bits.filter((b) => {
+      b.life -= (b.flutter ? 0.007 : 0.014) * k;
+      if (b.life <= 0 || b.y > fx.h + 10) return false;
+      if (b.flutter) { b.sway += 0.06 * k; b.x += (b.vx + Math.sin(b.sway) * 0.7) * k; b.y += b.vy * k; }
+      else { b.x += b.vx * k; b.y += b.vy * k; b.vy += 0.22 * k; }
+      ctx.globalAlpha = Math.min(1, b.life); ctx.fillStyle = b.c; ctx.fillRect(b.x, b.y, 5, 9); ctx.globalAlpha = 1;
+      return true;
+    });
+    if (C.active || fx.rings.length || fx.bits.length) requestAnimationFrame(fxLoop);
+    else { fx.running = false; ctx.clearRect(0, 0, fx.w, fx.h); }
+  }
+  function burst(colors, flutter) { const c = cardCenter(); burstAt(c.x, c.y, colors, flutter); }
+  function burstAt(x, y, colors, flutter) {
+    if (reduceMotion()) return;
+    for (let i = 0; i < (flutter ? 40 : 70); i++) {
+      fx.bits.push(flutter
+        ? { x: x - 120 + Math.random() * 240, y: y - 160 - Math.random() * 40, vx: (Math.random() - 0.5) * 1.1, vy: 0.35 + Math.random() * 0.9, c: colors[rnd(colors.length)], life: 1.6, sway: Math.random() * 6, flutter: true }
+        : { x: x, y: y, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8 - 2, c: colors[rnd(colors.length)], life: 1, sway: 0, flutter: false });
+    }
+    fxKick();
+  }
+
+  function chargeStart() {
+    const Q = G.Q;
+    if (C.active || G.busy || Q.over || G.sheet) return;
+    if (!eligible(Q).length) { G.saying = "Every clue is out. <b>Make the call.</b>"; updateAction(); return; }
+    ac();
+    C.active = true; C.t0 = C.last = performance.now(); C.level = 0; C.phase = -Math.PI / 2; C.hap = -1; C.over = false;
+    card.classList.remove("idle");
+    card.style.transition = "none";
+    face.className = "fs-face back";
+    setFace("THE DECK", "?", "CHARGING");
+    vig.classList.add("live");
+    fxSize();
+    const tgt = cardCenter();
+    fx.parts = Array.from({ length: 90 }, () => spawn({}, tgt));
+    riserStart();
+    updateAction();
+    fxKick();
+  }
+
+  function flyCard(si, i, p) {
+    return new Promise((done) => {
+      const slotEl = phone.querySelector(`.fg-chip[data-si="${si}"][data-i="${i}"]`);
+      const a = card.getBoundingClientRect();
+      if (!slotEl || reduceMotion()) { card.style.opacity = "0"; done(); return; }
+      const b = slotEl.getBoundingClientRect();
+      const clone = document.createElement("div");
+      clone.className = "fs-clone" + (p.face === "gold" ? " gold" : p.face === "brown" ? " brown" : "");
+      clone.innerHTML = `<span class="n">${esc(p.num)}</span><span class="p">${esc(p.sub || where(si, p.s))}</span>`;
+      root.appendChild(clone);
+      const x0 = a.left + a.width / 2 - 26, y0 = a.top + a.height / 2 - 29.5;
+      const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+      const s0 = a.width / 52, s1 = b.width / 52;
+      card.style.opacity = "0";
+      sfx.whoosh();
+      clone.animate([
+        { transform: `translate(${x0}px, ${y0}px) scale(${s0}) rotate(0deg)` },
+        { transform: `translate(${x0 + dx * 0.55}px, ${y0 + dy - 48}px) scale(${(s0 + s1) / 2 + 0.15}) rotate(-8deg)`, offset: 0.55 },
+        { transform: `translate(${x0 + dx}px, ${y0 + dy}px) scale(${s1}) rotate(0deg)` },
+      ], { duration: 560, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" }).onfinish = () => { clone.remove(); done(); };
+    });
+  }
+
+  async function revealAndFly(p, first) {
+    const rm = reduceMotion();
+    const S = G.Q.sides[p.si], i = S.slots.indexOf(p.s);
+    card.classList.remove("idle");
+    card.style.opacity = "1";
+    card.style.transition = "transform .35s cubic-bezier(.2,1.2,.4,1)";
+    card.style.transform = `translate(0, -10px) scale(${rm ? 1 : first ? 1.3 : 1.18})`;
+    card.style.setProperty("--glow", "0.5");
+    face.className = "fs-face reel";
+    const spinMs = rm ? 120 : first ? 950 : 620;
+    if (!rm) face.animate([{ transform: "rotateY(0deg)" }, { transform: `rotateY(${first ? 1440 : 1080}deg)` }], { duration: spinMs, easing: "cubic-bezier(.12,.75,.25,1)" });
+    const t0 = performance.now();
+    await new Promise((res) => {
+      const iv = setInterval(() => {
+        if (performance.now() - t0 > spinMs - 110) { clearInterval(iv); res(); return; }
+        sfx.tick();
+        setFace(where(p.si, p.s), "#" + (1 + rnd(98)), "");
+      }, rm ? 40 : 75);
+    });
+    await sleep(rm ? 0 : 110);
+    face.className = "fs-face " + p.face;
+    setFace(where(p.si, p.s), p.num, p.sub);
+    if (p.face === "gold") { sfx.gold(); buzz(HAPTIC.peak); stamp(0, "PEAK", "peak"); burst(["#fde68a", "#fbbf24", "#fff7d6"], false); }
+    else if (p.face === "brown") {
+      sfx.droop(); buzz(HAPTIC.cheeks); stamp(0, "CHEEKS", "cheeks"); burst(["#b07a4c", "#7c4a21", "#8d99ab"], true);
+      card.style.transition = "transform .6s ease-in";
+      card.style.transform = `translate(0, -2px) scale(${rm ? 1 : 1.18}) rotate(-4deg)`;
+    }
+    else sfx.call();
+    G.saying = esc(p.toast);
+    updateAction();
+    await sleep(rm ? 60 : p.face === "plain" ? 430 : 780);
+    await flyCard(p.si, i, p);
+    commit(p.s, p);
+    G.log.unshift({ n: G.Q.spins, kind: p.kind === "fd" ? "peak" : p.kind, text: p.toast });
+    render();
+    sfx.thud(); buzz(HAPTIC.land);
+    await sleep(rm ? 30 : 200);
+  }
+
+  async function release() {
+    if (!C.active) return;
+    C.active = false;
+    const perfect = C.level >= 1 && Math.sin(C.phase) > 0.75;
+    riserStop();
+    vig.classList.remove("live");
+    G.busy = true;
+    updateAction();
+    const tgt = cardCenter();
+    sfx.kick(); buzz(HAPTIC.kick);
+    if (!reduceMotion()) { phone.classList.remove("quake"); void phone.offsetWidth; phone.classList.add("quake"); }
+    const now = performance.now();
+    fx.rings.push({ x: tgt.x, y: tgt.y, r0: tgt.r, r1: Math.max(fx.w, fx.h) * (0.4 + C.level * 0.5), dur: 420, t0: now, col: "200,235,255", w: 2 + C.level * 3 });
+    if (perfect) {
+      fx.rings.push({ x: tgt.x, y: tgt.y, r0: tgt.r * 0.5, r1: Math.max(fx.w, fx.h), dur: 640, t0: now + 70, col: "253,230,138", w: 5 });
+      sfx.perfect(); buzz(HAPTIC.perfect); stamp(1, "PERFECT", "perfect"); flash();
+      G.perfects++;
+    } else if (C.level >= 1) sfx.boom();
+    fxKick();
+    const Q = G.Q;
+    Q.spins++;
+    const n = Q.noHuddle ? 2 : 1;
+    Q.noHuddle = false;
+    const plans = [];
+    for (let k = 0; k < n; k++) { const x = choose(Q); if (!x) break; plans.push(planReveal(x.si, x.s)); }
+    top.querySelector(".fg-hud").outerHTML = hud();
+    for (let k = 0; k < plans.length; k++) await revealAndFly(plans[k], k === 0);
+    vig.style.opacity = "0";
+    resetCard();
+    G.busy = false;
+    updateAction();
+  }
+
+  // ---------- input ----------
+  phone.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    if (!e.target.closest(".fs-card, [data-act='spin']")) return;
+    if (spinBtn.disabled && !e.target.closest(".fs-card")) return;
+    e.preventDefault();
+    chargeStart();
+  });
+  window.addEventListener("pointerup", () => { if (C.active) release(); });
+  window.addEventListener("pointercancel", () => { if (C.active) release(); });
+  spinBtn.addEventListener("keydown", (e) => {
+    if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); chargeStart(); }
+  });
+  spinBtn.addEventListener("keyup", (e) => {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (C.active) release(); }
+  });
+
+  phone.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-act]");
+    if (!t || !phone.contains(t) || t.disabled) return;
+    const act = t.dataset.act;
+    if (act === "mute") { soundOn = !soundOn; if (soundOn) { ac(); sfx.tick(); } else riserStop(); updateAction(); return; }
+    if (act === "spin" || C.active || G.busy) return;
+    const Q = G.Q, sh = G.sheet;
+    if (act === "call") G.sheet = { type: "call", si: +t.dataset.si };
+    else if (act === "pick" && sh?.type === "call") { G.sheet = null; call(G, sh.si, t.dataset.ab); return; }
+    else if (act === "slot") {
+      const si = +t.dataset.si, i = +t.dataset.i, s = Q.sides[si].slots[i];
+      if (Q.film && !Q.over && !s.fd && !s.ghost && s.layer >= 1 && s.layer < 3) {
+        s.layer = s.layer < 2 ? 2 : 3; s.anim = true; Q.film = false;
+        G.saying = esc("FILM: " + where(si, s) + " #" + s.num + " is " + s.ini + (s.layer === 3 ? ", from " + s.col : "") + ".");
+        G.log.unshift({ n: Q.spins, kind: "plain", text: "FILM: " + where(si, s) + " #" + s.num + " is " + s.ini + "." });
+      }
+      else if (s.fd && !Q.over) G.sheet = { type: "fd", si, i };
+      else G.sheet = { type: "detail", si, i };
+    }
+    else if (act === "fd-play" && sh?.type === "fd") {
+      G.sheet = null;
+      const s = Q.sides[sh.si].slots[sh.i];
+      s.fd = false; s.layer = 2; s.anim = true; sfx.gold(); buzz(HAPTIC.peak);
+      G.saying = esc("Flipped: " + where(sh.si, s) + " #" + s.num + " " + s.ini + ". A PEAK.");
+      G.log.unshift({ n: Q.spins, kind: "peak", text: "Flipped: " + where(sh.si, s) + " #" + s.num + " " + s.ini + "." });
+    }
+    else if (act === "fd-spend" && sh?.type === "fd") G.sheet = { type: "plays", src: "fd", si: sh.si, i: sh.i };
+    else if (act === "bank") { if (G.chips > 0 && !Q.over) G.sheet = { type: "plays", src: "bank" }; }
+    else if (act === "tape") G.sheet = { type: "tape" };
+    else if (act === "play" && sh?.type === "plays") {
+      if (sh.src === "fd") { const s = Q.sides[sh.si].slots[sh.i]; s.fd = false; s.sealed = true; applyPlay(G, t.dataset.play); }
+      else if (G.chips > 0) { G.chips--; applyPlay(G, t.dataset.play); }
+      G.sheet = null;
+    }
+    else if (act === "close") G.sheet = null;
+    else if (act === "next") { if (G.q < 4) { G.q++; deal(G); } }
+    else if (act === "newgame") { G.q = 1; G.total = 0; G.chips = 0; G.perfects = 0; deal(G); }
+    render();
+  });
+  phone.addEventListener("keydown", (e) => { if (e.key === "Escape" && G.sheet) { G.sheet = null; render(); } });
+
+  resetCard();
+  render();
+})();
+</script>
