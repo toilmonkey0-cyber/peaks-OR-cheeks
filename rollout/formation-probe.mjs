@@ -67,6 +67,9 @@ async function callTeam(side, abbr) {
 const report = {};
 await click('[data-testid="formation-door"]');
 await page.waitForTimeout(400);
+// fresh device → the mode chooser; the free-play leg practices
+await page.evaluate(() => [...document.querySelectorAll(".fm-sheet button")].find((b) => b.textContent.includes("FREE PRACTICE"))?.click());
+await page.waitForTimeout(400);
 report.entered = (await state()).q === "Q1";
 
 // pulls: one short, one full charge, then hunt a face-down PEAK and play it
@@ -131,11 +134,69 @@ report.waveSeen = await page.waitForFunction(() => document.querySelectorAll(".f
 await callTeam("defense", answers[1]);
 await page.waitForFunction(() => document.querySelector(".fm-sheet.over"), null, { timeout: 8000 });
 report.solvedSheet = (await state()).over;
+// the daily leg: fresh context = a new device; enter, play TODAY, finish it, verify one-attempt + wall
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 320, height: 624 }, hasTouch: true, reducedMotion: "no-preference" });
+  const p2 = await ctx2.newPage();
+  const errs2 = [];
+  p2.on("pageerror", (e) => errs2.push(e.message));
+  await p2.goto(URL_);
+  await p2.evaluate(async () => { localStorage.clear(); for (const r of (await navigator.serviceWorker?.getRegistrations?.()) ?? []) await r.unregister(); });
+  await p2.reload();
+  await p2.waitForTimeout(700);
+  await p2.evaluate(() => document.querySelector('[data-testid="formation-door"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  const chooserBtn = await p2.waitForSelector('button:has-text("TODAY")', { timeout: 5000 });
+  await chooserBtn.click();
+  await p2.waitForTimeout(400);
+  const q1 = await p2.evaluate(() => document.querySelector(".fm-q")?.textContent);
+  // fast-finish all four quarters by burning downs on wrong teams (reading answers from the save each time)
+  const wrong = async (side) => {
+    const g = await p2.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem("rollout.formation.v1"));
+      return s.dailyGame ?? s.inProgress;
+    });
+    const skip = new Set([g.sides[0].team, g.sides[1].team, ...g.sides[0].out, ...g.sides[1].out]);
+    const ALL = ["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LA","LAC","LV","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SEA","SF","TB","TEN","WAS"];
+    const t = ALL.find((x) => !skip.has(x));
+    // ceremonies lock CALL — wait for it to come back before the next wrong call
+    await p2.waitForFunction((sd) => {
+      const b = document.querySelector(`[aria-label="CALL the ${sd}"]`);
+      return !b || !b.disabled;
+    }, side, { timeout: 8000 }).catch(() => {});
+    await p2.waitForTimeout(150);
+    await p2.evaluate((s) => document.querySelector(`[aria-label="CALL the ${s}"]`)?.dispatchEvent(new MouseEvent("click", { bubbles: true })), side);
+    await p2.waitForTimeout(150);
+    await p2.evaluate((ab) => document.querySelector(`[data-testid="pick-${ab}"]`)?.dispatchEvent(new MouseEvent("click", { bubbles: true })), t);
+  };
+  for (let q = 1; q <= 4; q++) {
+    for (let k = 0; k < 4; k++) {
+      if (await p2.$(".fm-sheet.over")) break;
+      await wrong(k % 2 === 0 ? "offense" : "defense");
+      await p2.waitForTimeout(1100);
+    }
+    await p2.waitForSelector(".fm-sheet.over", { timeout: 8000 });
+    if (q < 4) {
+      await p2.evaluate(() => [...document.querySelectorAll(".fm-primary")].find((b) => b.textContent.includes("NEXT"))?.click());
+      await p2.waitForTimeout(300);
+    }
+  }
+  const share = await p2.evaluate(() => [...document.querySelectorAll(".fm-sheet.over button")].some((b) => b.textContent.includes("SHARE")));
+  await p2.evaluate(() => [...document.querySelectorAll(".fm-sheet.over button")].find((b) => b.textContent.includes("DONE"))?.click());
+  const chooser2 = await p2.waitForSelector('.fm-sheet:has-text("come back tomorrow")', { timeout: 5000 });
+  const shareText = await p2.evaluate(() => document.querySelector(".fm-sheet .fm-line")?.textContent ?? "");
+  // the wall shows today's two solved-by-turnover? turnover quarters reveal but do not SOLVE — wall must stay empty
+  await p2.evaluate(() => [...document.querySelectorAll(".fm-sheet button")].find((b) => b.textContent.includes("THE WALL"))?.click());
+  await p2.waitForTimeout(300);
+  const wallLit = await p2.evaluate(() => document.querySelectorAll(".fm-wall-tile.lit").length);
+  report.daily = { q1, share, comeBackTomorrow: !!chooser2, shareText, wallLit, errors: errs2 };
+  await ctx2.close();
+}
+
 report.errors = errors;
 await browser.close();
 
 console.log(JSON.stringify(report, null, 1));
-const ok = report.entered && report.afterTwoPulls.lit + report.afterTwoPulls.fd >= 2 && report.flatNoSeen &&
+const ok = report.entered && report.afterTwoPulls.lit + report.afterTwoPulls.fd >= 2 && report.flatNoSeen && report.daily?.q1 === "Q1" && report.daily?.share === true && report.daily?.comeBackTomorrow === true && /pulls/.test(report.daily?.shareText ?? "") && (report.daily?.wallLit ?? 1) === 0 && (report.daily?.errors?.length ?? 1) === 0 &&
   report.q1.over && report.finalLine?.startsWith("FINAL:") && report.newGame.q === "Q1" &&
   report.confirmedSeen && report.waveSeen && /PEAK QUARTER|Q1 FINAL/.test(report.solvedSheet ?? "") && errors.length === 0;
 console.log(ok ? "FORMATION PROBE: PASS" : "FORMATION PROBE: FAIL");
