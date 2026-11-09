@@ -177,3 +177,14 @@
 @media (prefers-reduced-motion: reduce) {
   .fm-card.idle, .fm-bg::after, .fm-chip.landing, .fm-chip.fd, .fm-sheet, .fm-downs.shake, .fm.quake .fm-top, .fm-tint.enter, .fm-tint.enter span, .fm-chip.wave { animation: none; }
 }
+.fm-bar-chips { margin-left: auto; display: flex; gap: 6px; }
+.fm-bar-chips + .fm-call, .fm-bar-chips .fm-tape + .fm-tape { margin-left: 0; }
+.fm-wall { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; overflow: auto; padding-bottom: 4px; }
+.fm-wall-tile { aspect-ratio: 1; border-radius: 12px; background: #0d1420; border: 1px solid #1d2941; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; min-width: 0; }
+.fm-wall-tile .q { font-size: 22px; font-weight: 800; color: #26324a; }
+.fm-wall-tile small { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--dim); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fm-wall-tile.lit { background: #16202f; border-color: #33415e; }
+.fm-wall-tile.lit img { width: 72%; max-height: 68%; object-fit: contain; image-rendering: auto; }
+.fm-wall-tile.lit small { color: #cbd5e1; }
+.fm-wall-tile.gold { border-color: var(--gold); box-shadow: 0 0 10px rgba(251, 191, 36, .25), inset 0 0 0 1px rgba(251, 191, 36, .35); }
+.fm-wall-tile.gold small { color: var(--gold); }

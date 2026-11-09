@@ -361,3 +361,36 @@ describe("free play: quarters, tape, save + resume", () => {
     expect(loadFormationSave().inProgress!.sides[0].slots[4].pending).toBe(false);
   });
 });
+
+describe("the trophy wall", () => {
+  it("renders 32 tiles: unlit show ? and no art; solved teams show the mascot name", () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "WALL" }));
+    const sheet = screen.getByRole("dialog", { name: "THE WALL" });
+    const tiles = within(sheet).getAllByTestId(/^wall-/);
+    expect(tiles.length).toBe(32);
+    expect(within(sheet).getByTestId("wall-KC").textContent).toContain("?");
+    expect(within(sheet).getByTestId("wall-BUF").querySelector("img")).toBeNull();
+  });
+
+  it("solving a side lights that team's mascot; gold frame only for a first-try call", async () => {
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "CALL the offense" }));
+    fireEvent.click(screen.getByTestId("pick-NE")); // one wrong call first
+    await waitFor(() => expect(screen.getByRole("button", { name: "CALL the offense" })).not.toBeDisabled(), { timeout: 3000 });
+    fireEvent.click(screen.getByRole("button", { name: "CALL the offense" }));
+    fireEvent.click(screen.getByTestId("pick-KC"));
+    await waitFor(() => expect(screen.getByText(/Kansas City Chiefs/)).toBeInTheDocument(), { timeout: 4000 });
+    // clean up: solve defense first-try for a gold frame
+    await waitFor(() => expect(screen.getByRole("button", { name: "CALL the defense" })).not.toBeDisabled(), { timeout: 4000 });
+    fireEvent.click(screen.getByRole("button", { name: "CALL the defense" }));
+    fireEvent.click(screen.getByTestId("pick-BUF"));
+    await waitFor(() => expect(screen.getByText(/Buffalo Bills/)).toBeInTheDocument(), { timeout: 4000 });
+    fireEvent.click(screen.getByRole("button", { name: "WALL" }));
+    const sheet = screen.getByRole("dialog", { name: "THE WALL" });
+    expect(within(sheet).getByTestId("wall-KC").className).not.toContain("gold");
+    expect(within(sheet).getByTestId("wall-KC").textContent).toContain("BBQ NATION"); // his city-nickname name
+    expect(within(sheet).getByTestId("wall-BUF").className).toContain("gold");
+    expect(within(sheet).getByTestId("wall-BUF").querySelector("img")).not.toBeNull();
+  });
+});

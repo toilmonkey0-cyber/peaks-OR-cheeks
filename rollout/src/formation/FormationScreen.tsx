@@ -16,7 +16,8 @@ import {
 import { Field } from "./Field";
 import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } from "./sheets";
 import { teamViews } from "./teams";
-import { loadFormationSave, recordFinishedGame, writeFormationSave } from "./store";
+import { loadFormationSave, recordFinishedGame, recordWallSolve, writeFormationSave } from "./store";
+import { WallSheet } from "./WallSheet";
 import "./FormationScreen.css";
 
 export interface FormationScreenProps {
@@ -36,7 +37,8 @@ type SheetState =
   | { type: "plays"; from: "bank" }
   | { type: "plays"; from: "peak"; side: 0 | 1; index: number }
   | { type: "detail"; side: 0 | 1; index: number }
-  | { type: "tape" };
+  | { type: "tape" }
+  | { type: "wall" };
 
 const newSeed = () => "fm-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
 
@@ -135,6 +137,9 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     synth.ensure();
     lock(true);
     const r = call(game, side, abbr);
+    if (r.correct) {
+      saveRef.current = recordWallSolve(saveRef.current, game.sides[side].team, game.sides[side].wrongCalls === 0);
+    }
     persist();
     bump();
     const rm = reduceMotion();
@@ -219,7 +224,12 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
         {known && t
           ? <span className="who on" style={{ ["--team" as string]: t.color } as React.CSSProperties}>{t.full}{S.solved ? " ✓" : ""}</span>
           : <span className="who">?</span>}
-        {side === 1 && <button type="button" className="fm-tape" onClick={() => setSheet({ type: "tape" })}>TAPE</button>}
+        {side === 1 && (
+          <span className="fm-bar-chips">
+            <button type="button" className="fm-tape" onClick={() => setSheet({ type: "tape" })}>TAPE</button>
+            <button type="button" className="fm-tape" aria-label="WALL" onClick={() => setSheet({ type: "wall" })}>WALL</button>
+          </span>
+        )}
         {!known && (
           <button type="button" className="fm-call" aria-label={`CALL the ${label}`} disabled={busy} onClick={() => setSheet({ type: "call", side })}>CALL</button>
         )}
@@ -261,6 +271,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       {sheet?.type === "plays" && <PlaysSheet game={g} title={sheet.from === "bank" ? "SPEND A CHIP" : "SPEND THE PEAK"} onPick={onPlay} onClose={close} />}
       {sheet?.type === "detail" && <DetailSheet game={g} side={sheet.side} index={sheet.index} onClose={close} />}
       {sheet?.type === "tape" && <TapeSheet log={g.log} onClose={close} />}
+      {sheet?.type === "wall" && <WallSheet wall={saveRef.current.wall} onClose={close} />}
       {!sheet && !busy && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); persist(); bump(); }} />}
     </div>
   );
