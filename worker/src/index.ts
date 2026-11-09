@@ -2,6 +2,16 @@
 // Deployed as a Cloudflare Worker; tested against an injected D1 shim (same interface).
 import { publishDaily } from "./daily.ts";
 import type { WorkerData, DailyPayload } from "./daily.ts";
+import dataJson from "../data.json" with { type: "json" };
+
+const DATA = dataJson as unknown as WorkerData;
+
+/** the wrangler entry point: env carries the D1 binding and the CORS allow-list */
+export default {
+  async fetch(request: Request, env: { FORMATION_DB: Parameters<typeof handle>[1]; CORS_ORIGINS?: string }): Promise<Response> {
+    return handle(request, env.FORMATION_DB, DATA, env.CORS_ORIGINS ?? "");
+  },
+};
 
 /** The slice of D1 the handler uses — wrangler's env.FORMATION_DB satisfies this; tests inject a shim. */
 interface D1Like {
@@ -28,15 +38,12 @@ async function readJson(request: Request): Promise<Record<string, unknown> | nul
 const str = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-export async function handle(request: Request, db: D1Like, data: WorkerData): Promise<Response> {
+export async function handle(request: Request, db: D1Like, data: WorkerData, corsOrigins = ""): Promise<Response> {
   const url = new URL(request.url);
   const origin = request.headers.get("origin") ?? "";
-  const cors = (url.hostname === "formation.board" ? "" : ((request as Request & { __cors?: string }).__cors ?? "")).trim();
-
-  // tests pass no CORS config; production reads it from env vars. Simplest honest check:
-  const allowedRaw = (globalThis as { __CORS_ORIGINS__?: string }).__CORS_ORIGINS__ ?? "https://toilmonkey0-cyber.github.io,http://localhost:4174,http://localhost:4181";
+  // production gets the allow-list from env (wrangler.toml vars); tests pass it directly
+  const allowedRaw = corsOrigins || "https://toilmonkey0-cyber.github.io,http://localhost:4174,http://localhost:4181";
   const allowed = allowedRaw.split(",").map((s) => s.trim()).filter(Boolean);
-  void cors;
 
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: { "access-control-allow-origin": allowed.includes(origin) ? origin : "", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" } });
@@ -53,14 +60,16 @@ export async function handle(request: Request, db: D1Like, data: WorkerData): Pr
   // ── the published daily ──────────────────────────────────────────────────
   if (path === "/daily" && method === "GET") {
     const day = url.searchParams.get("day");
-    const dataVersion = url.searchParams.get("dataVersion") ?? "";
     if (!day) return JSON_BODY({ error: "day required" }, 400, corsHeaders);
     const existing = await db.prepare("SELECT payloadJson FROM dailies WHERE day = ?").bind(day).first() as { payloadJson: string } | null;
     if (existing) return new Response(existing.payloadJson, { status: 200, headers: { "content-type": "application/json", ...corsHeaders } });
-    const payload: DailyPayload = publishDaily(day, dataVersion, data);
-    await db.prepare("INSERT INTO dailies (day, dataVersion, payloadJson, generatedAt) VALUES (?, ?, ?, ?)")
+    // the worker always seeds from ITS snapshot - the requester version param is a hint, never the source (Ruling C7)
+    const payload: DailyPayload = publishDaily(day, data.dataVersion, data);
+    // race-safe: a concurrent first request wins the lock; both payloads are identical anyway
+    await db.prepare("INSERT INTO dailies (day, dataVersion, payloadJson, generatedAt) VALUES (?, ?, ?, ?) ON CONFLICT(day) DO NOTHING")
       .bind(day, payload.dataVersion, JSON.stringify(payload), Date.now()).run();
-    return JSON_BODY(payload, 200, corsHeaders);
+    const locked = await db.prepare("SELECT payloadJson FROM dailies WHERE day = ?").bind(day).first() as { payloadJson: string } | null;
+    return new Response(locked?.payloadJson ?? JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json", ...corsHeaders } });
   }
 
   // ── groups ───────────────────────────────────────────────────────────────
@@ -112,7 +121,8 @@ export async function handle(request: Request, db: D1Like, data: WorkerData): Pr
     if (!day || !playerId || !nick || s === null || !detail) return JSON_BODY({ error: "day, playerId, nick, score, detailJson required" }, 400, corsHeaders);
     const group = await db.prepare("SELECT * FROM groups WHERE code = ?").bind(score[1]).first() as { code: string } | null;
     if (!group) return JSON_BODY({ error: "no such group" }, 404, corsHeaders);
-    await db.prepare("INSERT INTO scores (groupCode, day, playerId, nick, score, detailJson, submittedAt) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    // upsert: the offline queue guarantees re-posts - latest write wins on every field (PK groupCode+day+playerId)
+    await db.prepare("INSERT INTO scores (groupCode, day, playerId, nick, score, detailJson, submittedAt) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(groupCode, day, playerId) DO UPDATE SET nick=excluded.nick, score=excluded.score, detailJson=excluded.detailJson, submittedAt=excluded.submittedAt")
       .bind(score[1], day, playerId, nick, s, detail, Date.now()).run();
     return JSON_BODY({ ok: true }, 200, corsHeaders);
   }

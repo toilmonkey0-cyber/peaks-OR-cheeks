@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadSnapshot } from "@/data/snapshot";
 import { buildLineups } from "./lineups";
 import { createGame } from "./game";
-import { dailySeed, finishDaily, freshDaily, localDay, nextStreak, startDaily, type DailyResult } from "./daily";
+import { dailySeed, finishDaily, freshDaily, gameFromPayload, localDay, nextPublishedQuarter, nextStreak, startDaily, type DailyResult } from "./daily";
 
 const L = buildLineups(loadSnapshot("m27"));
 const V = "madden-ratings-week-6";
@@ -64,5 +64,47 @@ describe("daily state machine", () => {
   it("a finished day never restarts (startDaily is a no-op once finished)", () => {
     const done = finishDaily(startDaily(freshDaily(), "2026-11-08", V), { score: 41, quartersSolved: 4, perfects: 0, turnovers: 0, day: "2026-11-08" });
     expect(startDaily(done, "2026-11-08", V)).toEqual(done);
+  });
+});
+
+describe("published quarters (the Worker's sealed envelope)", () => {
+  const pp = (team: string, i: number, side: "off" | "def") => ({
+    team, side, key: `K${i}`, label: `L${i}`, pos: "QB", jersey: i, ini: "A.B.", fullName: "Alpha Beta",
+    college: "Somewhere St.", rating: 80, playerId: `ea-${team}-${i}`, stamp: "M" as const, cls: "common" as const,
+  });
+  const payload = {
+    day: "2026-11-08", dataVersion: "v", seed: "fm-daily:2026-11-08:v",
+    quarters: [0, 1, 2, 3].map((q) => ({
+      offense: `O${q}`, defense: `D${q}`,
+      lineups: { off: Array.from({ length: 11 }, (_, i) => pp(`O${q}`, i, "off")), def: Array.from({ length: 11 }, (_, i) => pp(`D${q}`, i, "def")) },
+    })),
+  };
+
+  it("SCOUTING DEPT crosses 3 deterministic teams per side in published quarters", () => {
+    const g = gameFromPayload(payload, 0);
+    g.schemes.scouting = true;
+    g.over = { kind: "solved", score: 5, banked: 0 };
+    expect(nextPublishedQuarter(g, payload)).toBe(true);
+    expect(g.sides[0].out.length).toBe(3);
+    const known = ["O0", "D0", "O1", "D1", "O2", "D2", "O3", "D3"].filter((t) => t !== "O1" && t !== "D1");
+    expect(known).toEqual(expect.arrayContaining(g.sides[0].out));
+    expect(g.sides[1].out).toEqual(g.sides[0].out);
+    expect(g.sides[0].out).not.toContain(g.sides[0].team);
+    expect(g.sides[0].out).not.toContain(g.sides[1].team);
+    const g2 = gameFromPayload(payload, 0);
+    g2.schemes.scouting = true;
+    g2.over = { kind: "solved", score: 5, banked: 0 };
+    nextPublishedQuarter(g2, payload);
+    expect(g2.sides[0].out).toEqual(g.sides[0].out);
+  });
+
+  it("carries hold: chips, counters, perfects ride to the payload's next pairing", () => {
+    const g = gameFromPayload(payload, 1);
+    g.chips = 2; g.quartersSolved = 1; g.perfects = 3;
+    g.over = { kind: "solved", score: 9, banked: 0 };
+    nextPublishedQuarter(g, payload);
+    expect(g.quarter).toBe(3);
+    expect([g.chips, g.quartersSolved, g.perfects, g.downs, g.pulls]).toEqual([2, 1, 3, 4, 0]);
+    expect(g.sides.map((s) => s.team)).toEqual(["O2", "D2"]);
   });
 });

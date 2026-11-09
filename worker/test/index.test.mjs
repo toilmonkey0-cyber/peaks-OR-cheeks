@@ -58,15 +58,17 @@ function makeDb() {
             const [groupCode, day, playerId, nick, score, detailJson, submittedAt] = state.params;
             const i = tables.scores.findIndex((r) => r.groupCode === groupCode && r.day === day && r.playerId === playerId);
             const row = { groupCode, day, playerId, nick, score, detailJson, submittedAt };
-            if (i >= 0) tables.scores[i] = row; // upsert: latest write wins
+            const upsert = /ON CONFLICT/i.test(sql);
+            if (i >= 0 && !upsert) throw new Error("UNIQUE constraint failed: scores.PK"); // real D1 throws
+            if (i >= 0) tables.scores[i] = /DO UPDATE/.test(sql) ? row : tables.scores[i];
             else tables.scores.push(row);
             return { success: true };
           }
           if (/INSERT INTO dailies/i.test(sql)) {
             const [day, dataVersion, payloadJson, generatedAt] = state.params;
             const i = tables.dailies.findIndex((r) => r.day === day);
-            const row = { day, dataVersion, payload: JSON.parse(payloadJson), generatedAt };
-            if (i >= 0) tables.dailies[i] = row; else tables.dailies.push(row);
+            if (i >= 0 && !/ON CONFLICT/i.test(sql)) throw new Error("UNIQUE constraint failed: dailies.day"); // real D1 throws
+            if (i < 0) tables.dailies.push({ day, dataVersion, payload: JSON.parse(payloadJson), generatedAt });
             return { success: true };
           }
           return { success: true };
@@ -145,8 +147,9 @@ test("the daily: publishes, locks per day, and replays identical bytes", async (
   const p1 = await r1.json();
   const r2 = await handle(new Request(`https://formation.board/daily?day=2026-11-09&dataVersion=${encodeURIComponent("madden-ratings-week-99")}`), db, data);
   const p2 = await r2.json();
-  // locked on first generation: later callers (even other data versions) get the SAME payload
+  // locked on first generation: later callers get the SAME payload (generation ignores the version hint)
   assert.equal(JSON.stringify(p1), JSON.stringify(p2));
+  assert.equal(p1.dataVersion, data.dataVersion);
   assert.equal(p1.quarters.length, 4);
 });
 
@@ -172,3 +175,11 @@ for (const [name, fn] of tests) {
 }
 console.log(failed === 0 ? `WORKER TESTS: PASS (${tests.length})` : `WORKER TESTS: FAIL (${failed}/${tests.length})`);
 process.exit(failed === 0 ? 0 : 1);
+
+// appended: the wrangler entry point delegates
+{
+  const mod = await import("../src/index.ts");
+  const ok = mod.default && typeof mod.default.fetch === "function";
+  console.log(ok ? "\u2713 default export delegates to handle (wrangler entry)" : "\u00d7 default export missing");
+  if (!ok) process.exitCode = 1;
+}

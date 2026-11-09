@@ -84,6 +84,30 @@ export function gameFromPayload(payload: DailyPayload, quarterIndex: number): Ga
   };
 }
 
+/** Deterministic wrong-team crosses for SCOUTING DEPT in published play (same rule as nextQuarter). */
+function scoutCrosses(seed: string, quarter: number, pool: string[], notPlaying: [string, string]): string[] {
+  const rng = makeRngLocal(`${seed}:scout:${quarter}`);
+  const rest = pool.filter((t) => !notPlaying.includes(t));
+  const out: string[] = [];
+  while (out.length < 3 && rest.length) out.push(rest.splice(Math.floor(rng() * rest.length), 1)[0]);
+  return out;
+}
+/** The league as the payload knows it — every team named anywhere in the 4 quarters is fair to cross; the
+ *  rest of the league is unknowable from a sealed envelope, so published scouting crosses come from the
+ *  payload's own 8 teams minus the pairing in play. Deterministic per (seed, quarter). */
+function leagueTeams(payload: DailyPayload): string[] {
+  const set = new Set<string>();
+  for (const q of payload.quarters) { set.add(q.offense); set.add(q.defense); }
+  return [...set].sort();
+}
+
+function makeRngLocal(seed: string): () => number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  let a = h >>> 0;
+  return () => { a = (a + 0x6d2b79f5) | 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
 /** Deal the payload's next quarter, carrying chips/schemes/counters (mirrors nextQuarter's carries). */
 export function nextPublishedQuarter(state: GameState, payload: DailyPayload): boolean {
   if (!state.over || state.quarter >= 4) return false;
@@ -93,5 +117,12 @@ export function nextPublishedQuarter(state: GameState, payload: DailyPayload): b
   };
   const next = gameFromPayload({ ...payload, seed: state.seed }, state.quarter);
   Object.assign(state, next, carry, { quarter: state.quarter + 1, flags: 0 });
+  if (state.schemes.scouting) {
+    // the payload only names 8 teams; crosses come from the FULL league via the payload's team list
+    const teams = payload.quarters.flatMap((x) => [x.offense, x.defense]).length >= 2 ? leagueTeams(payload) : [];
+    const crosses = scoutCrosses(state.seed, state.quarter, teams, [state.sides[0].team, state.sides[1].team]);
+    state.sides[0].out = [...crosses];
+    state.sides[1].out = [...crosses];
+  }
   return true;
 }

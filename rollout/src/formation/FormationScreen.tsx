@@ -90,6 +90,7 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   const [shared, setShared] = useState(false);
   const [board, setBoard] = useState<Board | null>(null);
   const [boardLoading, setBoardLoading] = useState(false);
+  const [boardGroup, setBoardGroup] = useState<string | null>(null);
   const sheetRef = useRef<SheetState>(null);
   sheetRef.current = sheet;
   const viewRef = useRef(view);
@@ -172,14 +173,16 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   /** TODAY: the Worker's published daily when reachable, else the cached one, else the phase-B local seed. */
   const startDailyMode = async () => {
     const d = startDaily(saveRef.current.daily ?? freshDaily(), today, dataVersion);
-    setMode("daily");
-    setView("play");
     setSheet(null);
-    let payload = apiBase() ? await fetchDaily(today, dataVersion) : null;
-    if (!payload && saveRef.current.published?.day === today) payload = saveRef.current.published;
-    const g = payload ? gameFromPayload(payload, 0) : createGame(d.seed, lineups);
+    // resolve the game BEFORE the field shows - no flash of a random local game mid-fetch
+    let payload = apiBase() ? await fetchDaily(d.day, dataVersion) : null;
+    if (!payload && saveRef.current.published?.day === d.day) payload = saveRef.current.published;
+    const resumed = saveRef.current.dailyGame && saveRef.current.daily?.day === d.day && !saveRef.current.daily.result ? saveRef.current.dailyGame : null;
+    const g = resumed ?? (payload ? gameFromPayload(payload, 0) : createGame(d.seed, lineups));
     saveRef.current = { ...saveRef.current, daily: d, dailyGame: g, ...(payload ? { published: payload } : {}) };
     gameRef.current = g;
+    setMode("daily");
+    setView("play");
     writeFormationSave(saveRef.current);
     bump();
   };
@@ -193,22 +196,23 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
       day: d.day, playerId: saveRef.current.playerId, nick: saveRef.current.nick || "PLAYER",
       score: finalScore(g), detailJson: JSON.stringify({ quarters: g.quartersSolved, perfects: g.perfects, turnovers: g.turnovers }),
     };
-    for (const grp of saveRef.current.groups) {
-      const ok = await postScore(grp.code, post);
-      if (!ok) saveRef.current = queueScore(saveRef.current, { ...post, groupCode: grp.code });
-      else saveRef.current = clearQueued(saveRef.current, (x) => x.groupCode === grp.code && x.day === post.day);
-    }
+    // write-ahead: enqueue every group FIRST (a tab kill mid-post loses nothing), then drain one by one
+    for (const grp of saveRef.current.groups) saveRef.current = queueScore(saveRef.current, { ...post, groupCode: grp.code });
     writeFormationSave(saveRef.current);
+    for (const grp of saveRef.current.groups) await flushOne(grp.code, post.day);
+  };
+  const flushOne = async (groupCode: string, day: string) => {
+    const x = saveRef.current.pendingScores.find((q) => q.groupCode === groupCode && q.day === day);
+    if (!x) return;
+    const ok = await postScore(groupCode, { day: x.day, playerId: x.playerId, nick: x.nick, score: x.score, detailJson: x.detailJson });
+    if (ok) {
+      saveRef.current = clearQueued(saveRef.current, (q) => q.groupCode === groupCode && q.day === day); // clear only what succeeded
+      writeFormationSave(saveRef.current);
+    }
   };
   const flushQueued = async () => {
     if (!apiBase() || !saveRef.current.pendingScores.length) return;
-    const stillFailing: typeof saveRef.current.pendingScores = [];
-    for (const x of saveRef.current.pendingScores) {
-      const ok = await postScore(x.groupCode, { day: x.day, playerId: x.playerId, nick: x.nick, score: x.score, detailJson: x.detailJson });
-      if (!ok) stillFailing.push(x);
-    }
-    saveRef.current = { ...saveRef.current, pendingScores: stillFailing };
-    writeFormationSave(saveRef.current);
+    for (const x of [...saveRef.current.pendingScores]) await flushOne(x.groupCode, x.day); // per-item: a mid-flush enqueue survives
   };
 
   const finishDailyGame = () => {
@@ -307,7 +311,9 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
     done();
   };
   const onNext = () => {
-    if (mode === "daily" && saveRef.current.published?.day === today) nextPublishedQuarter(g, saveRef.current.published);
+    // gate on the daily's own day: a game resumed past midnight keeps its published quarters
+    const pub = saveRef.current.published;
+    if (mode === "daily" && pub && pub.day === saveRef.current.daily?.day) nextPublishedQuarter(g, pub);
     else nextQuarter(g, lineups, makeRng(g.seed + ":q" + (g.quarter + 1)));
     persist();
     bump();
@@ -324,22 +330,36 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
     return code;
   };
   const onJoinGroup = async (code: string, nick: string) => {
-    saveRef.current = ensurePlayer({ ...saveRef.current, nick, groups: saveRef.current.groups.some((g) => g.code === code) ? saveRef.current.groups : [...saveRef.current.groups, { code, name: code }] });
-    writeFormationSave(saveRef.current);
-    const ok = await joinGroup(code, saveRef.current.playerId, nick);
-    if (ok) bump();
-    return ok;
+    const save = ensurePlayer({ ...saveRef.current, nick });
+    const ok = await joinGroup(code, save.playerId, nick);
+    if (ok) {
+      saveRef.current = { ...save, groups: save.groups.some((g) => g.code === code) ? save.groups : [...save.groups, { code, name: code }] };
+      writeFormationSave(saveRef.current);
+      bump();
+    }
+    return ok; // a bad code never lands in the list
   };
-  const openBoard = async () => {
+  const onLeaveGroup = (code: string) => {
+    saveRef.current = { ...saveRef.current, groups: saveRef.current.groups.filter((g) => g.code !== code), pendingScores: saveRef.current.pendingScores.filter((x) => x.groupCode !== code) };
+    writeFormationSave(saveRef.current);
+    setBoard(null);
+    bump();
+  };
+  const openBoard = (code?: string) => {
+    const groupCode = code ?? boardGroup ?? saveRef.current.groups[0]?.code;
+    setBoardGroup(groupCode ?? null);
     setSheet({ type: "board" });
     setBoard(null);
     setBoardLoading(true);
     void flushQueued();
-    const first = saveRef.current.groups[0];
-    const b = first ? await fetchBoard(first.code, today, saveRef.current.playerId) : null;
-    setBoard(b);
-    setBoardLoading(false);
+    void (async () => {
+      const b = groupCode ? await fetchBoard(groupCode, today, saveRef.current.playerId) : null;
+      setBoard(b);
+      setBoardLoading(false);
+    })();
   };
+  // a queued result from a previous session posts at first contact (mount flush)
+  useEffect(() => { void flushQueued(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onShare = () => {
     const g = gameRef.current!;
@@ -417,12 +437,12 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
       {sheet?.type === "detail" && <DetailSheet game={g} side={sheet.side} index={sheet.index} onClose={close} />}
       {sheet?.type === "tape" && <TapeSheet log={g.log} onClose={close} />}
       {sheet?.type === "wall" && <WallSheet wall={saveRef.current.wall} onClose={close} />}
-      {sheet?.type === "groups" && <GroupSheet save={saveRef.current} onCreate={onCreateGroup} onJoin={onJoinGroup} onClose={close} />}
-      {sheet?.type === "board" && <BoardSheet board={board} today={today} loading={boardLoading} offline={!apiBase()} youNick={saveRef.current.nick} onClose={close} />}
+      {sheet?.type === "groups" && <GroupSheet save={saveRef.current} onCreate={onCreateGroup} onJoin={onJoinGroup} onLeave={onLeaveGroup} onClose={close} />}
+      {sheet?.type === "board" && <BoardSheet board={board} today={today} loading={boardLoading} offline={!apiBase()} youNick={saveRef.current.nick} groups={saveRef.current.groups} activeGroup={boardGroup} onPickGroup={(c) => openBoard(c)} onClose={close} />}
       {view === "chooser" ? (
         <ModeSheet daily={saveRef.current.daily} today={today} resumableFree={!!saveRef.current.inProgress}
           onToday={() => void startMode("daily")} onFree={() => startMode("free")} onWall={() => setSheet({ type: "wall" })}
-          onGroups={() => setSheet({ type: "groups" })} onBoard={() => void openBoard()} />
+          onGroups={() => setSheet({ type: "groups" })} onBoard={() => openBoard()} />
       ) : !sheet && !busy && g.over && (
         <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); persist(); bump(); }}
           dailyFinal={mode === "daily" && g.quarter >= 4 && saveRef.current.daily ? { streak: dailyStreak, shared, onShare, onDone: finishDailyGame } : undefined} />

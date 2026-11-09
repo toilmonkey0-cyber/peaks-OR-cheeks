@@ -6,10 +6,11 @@ import { apiBase } from "./api";
 const CODE_RE = /^[A-Z2-9]{6}$/;
 
 /** Create a group or join with a code + your nickname. No accounts — the phone is the identity. */
-export function GroupSheet({ save, onCreate, onJoin, onClose }: {
+export function GroupSheet({ save, onCreate, onJoin, onLeave, onClose }: {
   save: FormationSave;
   onCreate: (name: string) => Promise<string | null>;
   onJoin: (code: string, nick: string) => Promise<boolean>;
+  onLeave: (code: string) => void;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"join" | "create">(save.groups.length ? "join" : "create");
@@ -35,8 +36,13 @@ export function GroupSheet({ save, onCreate, onJoin, onClose }: {
         <div className="fm-sh-head"><span>THE GROUP</span><button type="button" className="fm-x" onClick={onClose}>CLOSE</button></div>
         {!apiBase() && <p className="fm-note">The board isn't connected yet. Groups arrive with the house's server.</p>}
         {save.groups.length > 0 && (
-          <div>
-            {save.groups.map((g) => <p key={g.code} className="fm-note">{g.name} · <b>{g.code}</b></p>)}
+          <div className="fm-grouplist">
+            {save.groups.map((g) => (
+              <div key={g.code} className="fm-groupline">
+                <span className="fm-note">{g.name} · <b>{g.code}</b></span>
+                <button type="button" className="fm-x" aria-label={`Leave ${g.name}`} onClick={() => onLeave(g.code)}>LEAVE</button>
+              </div>
+            ))}
           </div>
         )}
         <div className="fm-shop">
@@ -69,14 +75,22 @@ export function GroupSheet({ save, onCreate, onJoin, onClose }: {
 }
 
 /** Today's standings. Rows stay blurred until you've played today — no spoilers. */
-export function BoardSheet({ board, today, loading, offline, onClose, youNick }: {
-  board: Board | null; today: string; loading: boolean; offline: boolean; youNick: string; onClose: () => void;
+export function BoardSheet({ board, today, loading, offline, onClose, youNick, groups, activeGroup, onPickGroup }: {
+  board: Board | null; today: string; loading: boolean; offline: boolean; youNick: string;
+  groups: FormationSave["groups"]; activeGroup: string | null; onPickGroup: (code: string) => void; onClose: () => void;
 }) {
   return (
     <>
       <div className="fm-scrim" onClick={onClose} />
       <div className="fm-sheet" role="dialog" aria-modal="true" aria-label="THE BOARD">
         <div className="fm-sh-head"><span>THE BOARD · {today.slice(5)}</span><button type="button" className="fm-x" onClick={onClose}>CLOSE</button></div>
+        {groups.length > 1 && (
+          <div className="fm-tabs">
+            {groups.map((g) => (
+              <button key={g.code} type="button" className={g.code === activeGroup ? "on" : ""} onClick={() => onPickGroup(g.code)}>{g.name}</button>
+            ))}
+          </div>
+        )}
         {offline && <p className="fm-note">Can't reach the house. Scores post when it's back.</p>}
         {loading && <p className="fm-note">Fetching the tape…</p>}
         {board && (board.youPlayed ? (
