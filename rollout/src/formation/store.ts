@@ -29,7 +29,8 @@ const isGame = (g: unknown): g is GameState =>
 /** A pull that was mid-flight when the tab died never landed: clear `pending` so the slot is pullable again. */
 function settle(g: GameState): GameState {
   for (const S of g.sides) for (const s of S.slots) s.pending = false;
-  // pre-B saves lack the quarter counters — default them or the daily result goes NaN
+  // pre-B saves lack the seed and quarter counters — default them (seed stable per game: derived from its teams)
+  g.seed ??= `fm-legacy-${g.sides[0].team}-${g.sides[1].team}-${g.quarter}`;
   g.quartersSolved ??= 0;
   g.turnovers ??= 0;
   return g;

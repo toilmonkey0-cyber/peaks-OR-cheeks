@@ -5,6 +5,7 @@ import { shareLine } from "./share";
 import { App } from "@/App";
 import { buildLineups } from "./engine/lineups";
 import { createGame, type GameState } from "./engine/game";
+import { OverSheet } from "./sheets";
 import { freshFormationSave, loadFormationSave, writeFormationSave } from "./store";
 import { FormationScreen } from "./FormationScreen";
 
@@ -346,17 +347,20 @@ describe("free play: quarters, tape, save + resume", () => {
     await ready("offense"); pick("offense", "NE");
     await ready("offense");
     unmount();
+    // while today's daily waits, the chooser greets first — FREE PRACTICE resumes the game
     render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} />);
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "FORMATION" })).getByRole("button", { name: /FREE PRACTICE/ }));
     expect(litPips()).toBe(3);
     expect(screen.getByTestId("formation-screen").dataset.offense).toBe("KC");
   });
 
-  it("a pull killed mid-flight resumes as if it never happened: slot pullable, no spin lost", () => {
+  it("a pull killed mid-flight resumes as if it never happened: slot pullable, no spin lost", async () => {
     const g: GameState = createGame("mid", L, ["KC", "BUF"]);
     g.pulls = 3;
     g.sides[0].slots[4].pending = true; // the tab died with this card in the air
     writeFormationSave({ ...freshFormationSave(), inProgress: g });
     render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} />);
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "FORMATION" })).getByRole("button", { name: /FREE PRACTICE/ }));
     expect(screen.getByText("SPINS").parentElement!.textContent).toBe("SPINS3");
     expect(screen.getByTestId("hold-btn")).not.toBeDisabled();
     expect(loadFormationSave().inProgress!.sides[0].slots[4].pending).toBe(false);
@@ -409,6 +413,24 @@ describe("the share line", () => {
   });
 });
 
+describe("quarter-final quip + legacy saves", () => {
+  it("the quip holds still across re-renders (picked once per final)", () => {
+    let n = 0;
+    const real = Math.random;
+    Math.random = () => (n++ % 7) / 7; // a different value every call
+    try {
+      const g = createGame("qf", L, ["KC", "BUF"]);
+      g.over = { kind: "solved", score: 7, banked: 0 };
+      const { rerender } = render(<OverSheet game={g} teams={new Map()} onNext={() => {}} onNewGame={() => {}} onBuy={() => {}} />);
+      const first = screen.getByTestId("quip").textContent;
+      rerender(<OverSheet game={g} teams={new Map()} onNext={() => {}} onNewGame={() => {}} onBuy={() => {}} />);
+      const second = screen.getByTestId("quip").textContent;
+      expect(first).toBeTruthy();
+      expect(second).toBe(first);
+    } finally { Math.random = real; }
+  });
+});
+
 describe("the daily flow", () => {
   const realMatchMedia = window.matchMedia;
   beforeEach(() => {
@@ -443,6 +465,25 @@ describe("the daily flow", () => {
     expect(within(chooser).queryByRole("button", { name: /TODAY'S GAME/ })).toBeNull();
     expect(within(chooser).getByText(/38 pulls/)).toBeInTheDocument(); // 41 total − 3 unspent chips = the final score
     second.unmount();
+  });
+
+  it("the chooser is modal: blind taps behind it never touch the save or the wall", async () => {
+    const { unmount } = enter();
+    await findChooser();
+    fireEvent.click(screen.getByRole("button", { name: "CALL the defense" }));
+    fireEvent.click(await screen.findByTestId("pick-ARI"));
+    await new Promise((r) => setTimeout(r, 600));
+    expect(localStorage.getItem("rollout.formation.v1")).toBeNull(); // nothing persisted behind the chooser
+    unmount();
+  });
+
+  it("FREE PRACTICE resumes an unfinished game instead of discarding it", async () => {
+    const g = createGame("resume", L, ["KC", "BUF"]);
+    g.pulls = 2;
+    localStorage.setItem("rollout.formation.v1", JSON.stringify({ inProgress: g, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null }));
+    enter();
+    fireEvent.click(within(await findChooser()).getByRole("button", { name: /FREE PRACTICE/ }));
+    expect(screen.getByText("SPINS").parentElement!.textContent).toBe("SPINS2");
   });
 
   it("FREE PRACTICE never touches daily state", async () => {

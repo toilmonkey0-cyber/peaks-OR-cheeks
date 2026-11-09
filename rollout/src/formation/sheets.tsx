@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { GameState, LogEntry, Play } from "./engine/game";
 import { PEAK_QUARTER_PULLS, SCHEME_PRICES } from "./feel";
 import { finalScore } from "./engine/game";
@@ -111,7 +111,9 @@ export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall
 }) {
   const done = daily && daily.day === today && daily.result;
   return (
-    <Sheet title="FORMATION">
+    <>
+      <div className="fm-scrim choice" aria-hidden="true" /> {/* the chooser is modal: nothing behind it plays */}
+      <Sheet title="FORMATION">
       {done ? (
         <>
           <p className="fm-note">Today's game is in the books — come back tomorrow.</p>
@@ -126,7 +128,8 @@ export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall
       )}
       <button type="button" className="fm-opt" onClick={onFree}><b>FREE PRACTICE</b><small>{resumableFree ? "Resume your game in progress." : "Unlimited random games. Fills the wall."}</small></button>
       <button type="button" className="fm-opt" onClick={onWall}><b>THE WALL</b><small>Every team you've ever named.</small></button>
-    </Sheet>
+      </Sheet>
+    </>
   );
 }
 
@@ -137,13 +140,14 @@ export function OverSheet({ game, teams, onNext, onNewGame, onBuy, dailyFinal }:
   const o = game.over!;
   const peakQ = o.kind === "solved" && o.score <= PEAK_QUARTER_PULLS;
   const head = o.kind === "turnover" ? "TURNOVER ON DOWNS" : peakQ ? "PEAK QUARTER" : `Q${game.quarter} FINAL`;
-  const quip = quarterLine(o.kind === "turnover" ? "turnover" : peakQ ? "peak-quarter" : "final");
+  // the house says it once per final — re-renders (SHARE taps, scheme buys) never re-roll the line
+  const quip = useMemo(() => quarterLine(o.kind === "turnover" ? "turnover" : peakQ ? "peak-quarter" : "final"), [o.kind, peakQ]);
   const name = (abbr: string) => teams.get(abbr)?.full ?? abbr;
   const halftime = game.quarter === 2;
   return (
     <Sheet title={head} className={o.kind === "turnover" ? "over cheeksq" : peakQ ? "over peakq" : "over"}>
       <p className="fm-line">{o.kind === "turnover" ? `This quarter scores ${o.score}.` : `${o.score} spins.`}</p>
-      <p className="fm-note">{quip}</p>
+      <p className="fm-note" data-testid="quip">{quip}</p>
       <p className="fm-note">OFFENSE: {name(game.sides[0].team)} · DEFENSE: {name(game.sides[1].team)}</p>
       {o.banked > 0 && <p className="fm-note">+{o.banked} chip{o.banked > 1 ? "s" : ""} banked from face-down PEAKs.</p>}
       {game.perfects > 0 && <p className="fm-note">PERFECT releases this game: {game.perfects}</p>}

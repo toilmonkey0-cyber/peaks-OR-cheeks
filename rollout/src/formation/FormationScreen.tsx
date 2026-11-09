@@ -53,11 +53,13 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   const teamMap = useMemo(() => teamViews(teams), [teams]);
   const seedRef = useRef(seed ?? newSeed());
   const saveRef = useRef(loadFormationSave());
+  const today = localDay(); // captured once per mount — the local day this session plays under
   const gameRef = useRef<GameState | null>(null);
   // entry: a daily in progress always resumes (one attempt must be finishable, even across midnight);
-  // then a free game in progress; otherwise the chooser
+  // a free game auto-resumes only once today's daily is out of the way — the chooser wins while it waits
+  const dailyPending = !(saveRef.current.daily && saveRef.current.daily.day === today && saveRef.current.daily.result);
   const wantDaily = !!saveRef.current.dailyGame;
-  const wantFree = !wantDaily && !!saveRef.current.inProgress;
+  const wantFree = !wantDaily && !!saveRef.current.inProgress && !dailyPending;
   if (!gameRef.current) {
     if (wantDaily) { gameRef.current = saveRef.current.dailyGame!; }
     else if (wantFree) { gameRef.current = saveRef.current.inProgress!; }
@@ -81,13 +83,15 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   const [sheet, setSheet] = useState<SheetState>(null);
   const [mode, setMode] = useState<"chooser" | "daily" | "free">(() => (entered === "chooser" ? "chooser" : entered));
   const [shared, setShared] = useState(false);
-  const today = localDay();
   const sheetRef = useRef<SheetState>(null);
   sheetRef.current = sheet;
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const emptyPool = !g.over && eligible(g).length === 0;
-  const canCharge = () => !busyRef.current && !sheetRef.current && !gameRef.current!.over && eligible(gameRef.current!).length > 0;
+  const playing = () => viewRef.current === "play";
+  const canCharge = () => playing() && !busyRef.current && !sheetRef.current && !gameRef.current!.over && eligible(gameRef.current!).length > 0;
 
   /** THE PULL, after the release: plan → reel → verdict → flight → commit (game state changes only on landing). */
   const onRelease = async (perfect: boolean) => {
@@ -136,7 +140,8 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
     // never serialize an in-flight plan (a tab-kill would resume having counted the spin with no clue landed)
     if (gameRef.current?.sides.some((S) => S.slots.some((x) => x.pending))) return;
     const game = gameRef.current;
-    if (mode === "daily" || (mode === "chooser" && saveRef.current.dailyGame)) {
+    if (mode === "chooser") return; // no mode owns this game yet — the chooser is modal
+    if (mode === "daily") {
       saveRef.current = { ...saveRef.current, dailyGame: game };
     } else if (game) {
       saveRef.current = { ...saveRef.current, inProgress: game };
@@ -150,7 +155,7 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
       saveRef.current = { ...saveRef.current, daily: d, dailyGame: g };
       gameRef.current = g;
     } else {
-      const g = createGame(newSeed(), lineups);
+      const g = saveRef.current.inProgress ?? createGame(newSeed(), lineups); // resume beats discard
       saveRef.current = { ...saveRef.current, inProgress: g };
       gameRef.current = g;
     }
@@ -186,7 +191,7 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   const callSide = async (side: 0 | 1, abbr: string) => {
     const game = gameRef.current!;
     const stage = stageRef.current;
-    if (busyRef.current || game.over || !stage) return;
+    if (!playing() || busyRef.current || game.over || !stage) return;
     setSheet(null);
     synth.ensure();
     lock(true);
@@ -242,7 +247,7 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   };
 
   const onSlot = (side: 0 | 1, index: number) => {
-    if (busyRef.current) return; // a second thumb can't open a sheet mid-pull
+    if (!playing() || busyRef.current) return; // a second thumb can't open a sheet mid-pull
     const s = g.sides[side].slots[index];
     if (filmSlot(g, side, index)) { persist(); bump(); return; }
     if (s.fd && !g.over) setSheet({ type: "peak", side, index });

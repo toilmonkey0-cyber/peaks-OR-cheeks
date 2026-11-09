@@ -95,3 +95,16 @@ describe("wall + daily sections", () => {
     expect(s.wall.KC!.gold).toBe(true);
   });
 });
+
+describe("legacy phase-A saves", () => {
+  it("load with a stable seed default (per-pull rng keeps working after the upgrade)", () => {
+    const legacy = createGame("old-seed", L, ["KC", "BUF"]);
+    const stripped = JSON.parse(JSON.stringify(legacy)) as Record<string, unknown>;
+    delete stripped.seed; // exactly what a phase-A save looks like to phase B
+    localStorage.setItem(KEY, JSON.stringify({ inProgress: stripped, bestGame: null, gamesPlayed: 1 }));
+    const a = loadFormationSave().inProgress!;
+    expect(typeof a.seed).toBe("string");
+    expect(a.seed.length).toBeGreaterThan(3);
+    expect(loadFormationSave().inProgress!.seed).toBe(a.seed); // stable, not re-rolled per load
+  });
+});
