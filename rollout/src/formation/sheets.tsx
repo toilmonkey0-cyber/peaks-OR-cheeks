@@ -5,6 +5,7 @@ import { finalScore } from "./engine/game";
 import type { TeamView } from "./teams";
 import type { DailyState } from "./engine/daily";
 import { shareLine } from "./share";
+import { quarterLine } from "./voice";
 
 const SIDE = ["OFFENSE", "DEFENSE"] as const;
 
@@ -136,11 +137,13 @@ export function OverSheet({ game, teams, onNext, onNewGame, onBuy, dailyFinal }:
   const o = game.over!;
   const peakQ = o.kind === "solved" && o.score <= PEAK_QUARTER_PULLS;
   const head = o.kind === "turnover" ? "TURNOVER ON DOWNS" : peakQ ? "PEAK QUARTER" : `Q${game.quarter} FINAL`;
+  const quip = quarterLine(o.kind === "turnover" ? "turnover" : peakQ ? "peak-quarter" : "final");
   const name = (abbr: string) => teams.get(abbr)?.full ?? abbr;
   const halftime = game.quarter === 2;
   return (
     <Sheet title={head} className={o.kind === "turnover" ? "over cheeksq" : peakQ ? "over peakq" : "over"}>
       <p className="fm-line">{o.kind === "turnover" ? `This quarter scores ${o.score}.` : `${o.score} spins.`}</p>
+      <p className="fm-note">{quip}</p>
       <p className="fm-note">OFFENSE: {name(game.sides[0].team)} · DEFENSE: {name(game.sides[1].team)}</p>
       {o.banked > 0 && <p className="fm-note">+{o.banked} chip{o.banked > 1 ? "s" : ""} banked from face-down PEAKs.</p>}
       {game.perfects > 0 && <p className="fm-note">PERFECT releases this game: {game.perfects}</p>}
