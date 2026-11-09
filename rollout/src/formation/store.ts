@@ -1,14 +1,25 @@
 import type { GameState } from "./engine/game";
+import { localDay, type DailyState } from "./engine/daily";
 
 const KEY = "rollout.formation.v1";
 
+export interface WallEntry { day: string; gold: boolean }
 export interface FormationSave {
   inProgress: GameState | null;
   bestGame: number | null; // lowest final score; null = no finished game yet
   gamesPlayed: number;
+  wall: Record<string, WallEntry>; // abbr → first solve (gold never downgrades)
+  daily: DailyState | null;
 }
 
-export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0 });
+export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null });
+
+const isDaily = (d: unknown): d is DailyState =>
+  !!d && typeof d === "object" && typeof (d as DailyState).day === "string" && typeof (d as DailyState).seed === "string" && "result" in (d as DailyState);
+
+const isWall = (w: unknown): w is FormationSave["wall"] =>
+  !!w && typeof w === "object" && Object.values(w).every((e) =>
+    !!e && typeof e === "object" && typeof (e as WallEntry).day === "string" && typeof (e as WallEntry).gold === "boolean");
 
 const isGame = (g: unknown): g is GameState =>
   !!g && typeof g === "object" && Array.isArray((g as GameState).sides) && (g as GameState).sides.length === 2 &&
@@ -29,6 +40,8 @@ export function loadFormationSave(): FormationSave {
       inProgress: isGame(parsed.inProgress) ? settle(parsed.inProgress) : null,
       bestGame: typeof parsed.bestGame === "number" ? parsed.bestGame : null,
       gamesPlayed: typeof parsed.gamesPlayed === "number" ? parsed.gamesPlayed : 0,
+      wall: isWall(parsed.wall) ? parsed.wall : {},
+      daily: isDaily(parsed.daily) ? parsed.daily : null,
     };
   } catch {
     return freshFormationSave();
@@ -45,8 +58,16 @@ export function writeFormationSave(save: FormationSave): void {
 
 export function recordFinishedGame(save: FormationSave, finalScore: number): FormationSave {
   return {
+    ...save,
     inProgress: null,
     bestGame: save.bestGame === null ? finalScore : Math.min(save.bestGame, finalScore),
     gamesPlayed: save.gamesPlayed + 1,
   };
+}
+
+/** Light a team's trophy the first time you solve them; gold (first-try call) never downgrades. */
+export function recordWallSolve(save: FormationSave, abbr: string, gold: boolean): FormationSave {
+  const prev = save.wall[abbr];
+  if (prev && (prev.gold || !gold)) return save;
+  return { ...save, wall: { ...save.wall, [abbr]: { day: prev?.day ?? localDay(), gold: prev?.gold || gold } } };
 }
