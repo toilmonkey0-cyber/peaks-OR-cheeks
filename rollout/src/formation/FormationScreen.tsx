@@ -18,11 +18,16 @@ import { CallSheet, DetailSheet, OverSheet, PeakSheet, PlaysSheet, TapeSheet } f
 import { teamViews } from "./teams";
 import { loadFormationSave, recordFinishedGame, recordWallSolve, writeFormationSave } from "./store";
 import { WallSheet } from "./WallSheet";
+import { ModeSheet } from "./sheets";
+import { finishDaily, freshDaily, localDay, nextStreak, startDaily } from "./engine/daily";
+import { shareLine } from "./share";
+import { copyText } from "@/util/clipboard";
 import "./FormationScreen.css";
 
 export interface FormationScreenProps {
   lineups: Record<string, TeamLineups>;
   teams: Team[];
+  dataVersion: string; // the roster snapshot id — part of the daily seed
   onExit: () => void;
   /** test hooks: deterministic teams + seed, or a whole game state (resume reuses this) */
   initialTeams?: [string, string];
@@ -44,25 +49,39 @@ const newSeed = () => "fm-" + Date.now().toString(36) + "-" + Math.random().toSt
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, initialGame }: FormationScreenProps) {
+export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTeams, seed, initialGame }: FormationScreenProps) {
   const teamMap = useMemo(() => teamViews(teams), [teams]);
   const seedRef = useRef(seed ?? newSeed());
   const saveRef = useRef(loadFormationSave());
   const gameRef = useRef<GameState | null>(null);
+  // entry: a daily in progress always resumes (one attempt must be finishable, even across midnight);
+  // then a free game in progress; otherwise the chooser
+  const wantDaily = !!saveRef.current.dailyGame;
+  const wantFree = !wantDaily && !!saveRef.current.inProgress;
   if (!gameRef.current) {
-    gameRef.current = initialGame
-      ?? (initialTeams ? createGame(seedRef.current, lineups, initialTeams) : saveRef.current.inProgress ?? createGame(seedRef.current, lineups));
+    if (wantDaily) { gameRef.current = saveRef.current.dailyGame!; }
+    else if (wantFree) { gameRef.current = saveRef.current.inProgress!; }
+    else if (initialGame) { gameRef.current = initialGame; }
+    else if (initialTeams) { gameRef.current = createGame(seedRef.current, lineups, initialTeams); }
+    else gameRef.current = createGame(seedRef.current, lineups);
   }
+  // test hooks (initialGame/initialTeams) mount straight into play as free practice
+  const [entered] = useState<"daily" | "free" | "chooser">(() =>
+    initialGame || initialTeams ? "free" : wantDaily ? "daily" : wantFree ? "free" : "chooser");
   const g = gameRef.current;
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<StageApi>(null);
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<"chooser" | "play">(() => (entered === "chooser" ? "chooser" : "play"));
   const [landing, setLanding] = useState<Set<string>>(new Set());
   const [wave, setWave] = useState<Set<string>>(new Set());
   const [enterTint, setEnterTint] = useState<number | null>(null);
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [mode, setMode] = useState<"chooser" | "daily" | "free">(() => (entered === "chooser" ? "chooser" : entered));
+  const [shared, setShared] = useState(false);
+  const today = localDay();
   const sheetRef = useRef<SheetState>(null);
   sheetRef.current = sheet;
   const alive = useRef(true);
@@ -116,8 +135,43 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
   const persist = () => {
     // never serialize an in-flight plan (a tab-kill would resume having counted the spin with no clue landed)
     if (gameRef.current?.sides.some((S) => S.slots.some((x) => x.pending))) return;
-    saveRef.current = { ...saveRef.current, inProgress: gameRef.current };
+    const game = gameRef.current;
+    if (mode === "daily" || (mode === "chooser" && saveRef.current.dailyGame)) {
+      saveRef.current = { ...saveRef.current, dailyGame: game };
+    } else if (game) {
+      saveRef.current = { ...saveRef.current, inProgress: game };
+    }
     writeFormationSave(saveRef.current);
+  };
+  const startMode = (m: "daily" | "free") => {
+    if (m === "daily") {
+      const d = startDaily(saveRef.current.daily ?? freshDaily(), today, dataVersion);
+      const g = createGame(d.seed, lineups);
+      saveRef.current = { ...saveRef.current, daily: d, dailyGame: g };
+      gameRef.current = g;
+    } else {
+      const g = createGame(newSeed(), lineups);
+      saveRef.current = { ...saveRef.current, inProgress: g };
+      gameRef.current = g;
+    }
+    setMode(m);
+    setView("play");
+    writeFormationSave(saveRef.current);
+    bump();
+  };
+  const finishDailyGame = () => {
+    const g = gameRef.current!;
+    const d = saveRef.current.daily!;
+    saveRef.current = {
+      ...saveRef.current,
+      dailyGame: null,
+      daily: finishDaily(d, { score: finalScore(g), quartersSolved: g.quartersSolved, perfects: g.perfects, turnovers: g.turnovers, day: d.day }),
+    };
+    setShared(false);
+    setMode("chooser");
+    setView("chooser");
+    writeFormationSave(saveRef.current);
+    bump();
   };
 
   /** Center of one side's half of the field, in root coordinates (for the confetti). */
@@ -203,6 +257,16 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     nextQuarter(g, lineups, makeRng(g.seed + ":q" + (g.quarter + 1)));
     done();
   };
+  const dailyStreak = saveRef.current.daily
+    ? nextStreak(saveRef.current.daily.streak, saveRef.current.daily.lastPlayedDay, saveRef.current.daily.day)
+    : 1;
+  const onShare = () => {
+    const g = gameRef.current!;
+    const d = saveRef.current.daily;
+    if (!d) return;
+    void copyText(shareLine({ score: finalScore(g), quartersSolved: g.quartersSolved, perfects: g.perfects, turnovers: g.turnovers, day: d.day }, dailyStreak)).then(setShared);
+  };
+
   const onNewGame = () => {
     const finished = gameRef.current!;
     if (finished.over && finished.quarter >= 4) saveRef.current = recordFinishedGame(saveRef.current, finalScore(finished));
@@ -272,7 +336,13 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       {sheet?.type === "detail" && <DetailSheet game={g} side={sheet.side} index={sheet.index} onClose={close} />}
       {sheet?.type === "tape" && <TapeSheet log={g.log} onClose={close} />}
       {sheet?.type === "wall" && <WallSheet wall={saveRef.current.wall} onClose={close} />}
-      {!sheet && !busy && g.over && <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); persist(); bump(); }} />}
+      {view === "chooser" ? (
+        <ModeSheet daily={saveRef.current.daily} today={today} resumableFree={!!saveRef.current.inProgress}
+          onToday={() => startMode("daily")} onFree={() => startMode("free")} onWall={() => setSheet({ type: "wall" })} />
+      ) : !sheet && !busy && g.over && (
+        <OverSheet game={g} teams={teamMap} onNext={onNext} onNewGame={onNewGame} onBuy={(w) => { buyScheme(g, w); persist(); bump(); }}
+          dailyFinal={mode === "daily" && g.quarter >= 4 && saveRef.current.daily ? { streak: dailyStreak, shared, onShare, onDone: finishDailyGame } : undefined} />
+      )}
     </div>
   );
 }

@@ -34,6 +34,8 @@ export interface GameState {
   over: null | { kind: "solved" | "turnover"; score: number; banked: number };
   total: number;
   perfects: number;
+  quartersSolved: number;
+  turnovers: number;
   flags: number; // CHALLENGE FLAGs used this quarter (one per wrong call)
   log: LogEntry[];
 }
@@ -67,7 +69,7 @@ export function createGame(seed: string, lineups: Record<string, TeamLineups>, t
     sides: [sideState(a, lineups[a].off.slots), sideState(b, lineups[b].def.slots)],
     pulls: 0, downs: 4, chips: 0, noHuddle: false, film: false,
     schemes: { starPower: false, scouting: false },
-    over: null, total: 0, perfects: 0, flags: 0, log: [],
+    over: null, total: 0, perfects: 0, quartersSolved: 0, turnovers: 0, flags: 0, log: [],
   };
 }
 
@@ -153,6 +155,7 @@ function endQuarter(state: GameState, kind: "solved" | "turnover"): number {
   state.chips += banked;
   const score = kind === "solved" ? state.pulls : TURNOVER_PENALTY;
   state.total += score;
+  if (kind === "solved") state.quartersSolved++; else state.turnovers++;
   state.over = { kind, score, banked };
   return banked;
 }
@@ -247,7 +250,7 @@ export function nextQuarter(state: GameState, lineups: Record<string, TeamLineup
   const [a, b] = pickTeams(Object.keys(lineups), rng);
   state.quarter++;
   state.sides = [sideState(a, lineups[a].off.slots), sideState(b, lineups[b].def.slots)];
-  Object.assign(state, { pulls: 0, downs: 4, flags: 0, noHuddle: false, film: false, over: null, log: [] });
+  Object.assign(state, { pulls: 0, downs: 4, flags: 0, noHuddle: false, film: false, over: null, log: [] }); // counters + chips + schemes carry
   if (state.schemes.scouting) {
     const pool = Object.keys(lineups).sort().filter((t) => t !== a && t !== b);
     const crossed: string[] = [];

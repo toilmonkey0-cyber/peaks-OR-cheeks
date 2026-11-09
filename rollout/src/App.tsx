@@ -41,7 +41,8 @@ export function App() {
       {view === "scanner" ? (
         <Scanner save={save} setSave={setSave} snapshots={snapshots} onFormation={() => setView("formation")} />
       ) : (
-        <FormationScreen lineups={formationLineups} teams={snapshots.m27.teams} onExit={() => setView("scanner")} />
+        <FormationScreen lineups={formationLineups} teams={snapshots.m27.teams} dataVersion={snapshots.m27.sourceIteration}
+          onExit={() => { setView("scanner"); history.replaceState(null, "", location.pathname + location.search); }} />
       )}
       {updateReady && (
         <div className="update-toast" data-testid="update-toast" role="status">

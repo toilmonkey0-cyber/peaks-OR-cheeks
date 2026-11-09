@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadSnapshot } from "@/data/snapshot";
+import { shareLine } from "./share";
 import { App } from "@/App";
 import { buildLineups } from "./engine/lineups";
 import { createGame, type GameState } from "./engine/game";
@@ -13,7 +14,7 @@ const L = buildLineups(snap);
 beforeEach(() => localStorage.clear());
 
 const mount = (onExit = () => {}) =>
-  render(<FormationScreen lineups={L} teams={snap.teams} onExit={onExit} initialTeams={["KC", "BUF"]} seed="t" />);
+  render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={onExit} initialTeams={["KC", "BUF"]} seed="t" />);
 const litPips = () => screen.getAllByTestId("down-pip").filter((p) => p.dataset.on === "true").length;
 
 describe("FormationScreen shell", () => {
@@ -153,7 +154,7 @@ describe("THE PULL", () => {
   it("every clue out with downs left: HOLD is locked and the house says make the call", () => {
     const g = createGame("x", L, ["KC", "BUF"]);
     for (const S of g.sides) S.slots.forEach((s) => { s.layer = 3; });
-    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} initialGame={g} />);
+    render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} initialGame={g} />);
     expect(screen.getByTestId("hold-btn")).toBeDisabled();
     expect(screen.getByText(/make the call/i)).toBeInTheDocument();
   });
@@ -272,7 +273,7 @@ describe("call theatricals", () => {
     const g = createGame("h", L, ["KC", "BUF"]);
     g.quarter = 2;
     g.chips = 3;
-    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} initialGame={g} />);
+    render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} initialGame={g} />);
     pick("offense", "KC");
     await waitFor(() => expect(screen.getByRole("button", { name: "CALL the defense" })).not.toBeDisabled(), { timeout: 4000 });
     pick("defense", "BUF");
@@ -345,7 +346,7 @@ describe("free play: quarters, tape, save + resume", () => {
     await ready("offense"); pick("offense", "NE");
     await ready("offense");
     unmount();
-    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} />);
+    render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} />);
     expect(litPips()).toBe(3);
     expect(screen.getByTestId("formation-screen").dataset.offense).toBe("KC");
   });
@@ -355,7 +356,7 @@ describe("free play: quarters, tape, save + resume", () => {
     g.pulls = 3;
     g.sides[0].slots[4].pending = true; // the tab died with this card in the air
     writeFormationSave({ ...freshFormationSave(), inProgress: g });
-    render(<FormationScreen lineups={L} teams={snap.teams} onExit={() => {}} />);
+    render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} />);
     expect(screen.getByText("SPINS").parentElement!.textContent).toBe("SPINS3");
     expect(screen.getByTestId("hold-btn")).not.toBeDisabled();
     expect(loadFormationSave().inProgress!.sides[0].slots[4].pending).toBe(false);
@@ -392,5 +393,65 @@ describe("the trophy wall", () => {
     expect(within(sheet).getByTestId("wall-KC").textContent).toContain("BBQ NATION"); // his city-nickname name
     expect(within(sheet).getByTestId("wall-BUF").className).toContain("gold");
     expect(within(sheet).getByTestId("wall-BUF").querySelector("img")).not.toBeNull();
+  });
+});
+
+describe("the share line", () => {
+  it("formats a normal day", () => {
+    expect(shareLine({ score: 41, quartersSolved: 4, perfects: 3, turnovers: 1, day: "2026-11-08" }, 5))
+      .toBe("FORMATION 11/08 · 41 pulls · 3 PERFECT · 1 TO · 🔥5");
+  });
+  it("survives edge days: no perfects, all turnovers, streak 1", () => {
+    expect(shareLine({ score: 280, quartersSolved: 0, perfects: 0, turnovers: 4, day: "2026-11-08" }, 1))
+      .toBe("FORMATION 11/08 · 280 pulls · 4 TO · all turnovers, as designed · 🔥1");
+    expect(shareLine({ score: 12, quartersSolved: 4, perfects: 0, turnovers: 0, day: "2026-01-31" }, 1))
+      .toBe("FORMATION 01/31 · 12 pulls · 🔥1");
+  });
+});
+
+describe("the daily flow", () => {
+  const realMatchMedia = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((q: string) => ({ matches: q.includes("reduce"), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+  });
+  afterEach(() => { window.matchMedia = realMatchMedia; });
+  /** The real entry: no test hooks, so the chooser (or a resume) shows like it does for a player. */
+  const enter = () => render(<FormationScreen lineups={L} teams={snap.teams} dataVersion="week-6" onExit={() => {}} />);
+  const findChooser = () => screen.findByRole("dialog", { name: "FORMATION" });
+
+  it("TODAY deals the seeded game; a finished daily shows its result and says come back tomorrow", async () => {
+    const { unmount } = enter();
+    fireEvent.click(within(await findChooser()).getByRole("button", { name: /TODAY'S GAME/ }));
+    expect(screen.getByText("Q1")).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^slot-/).length).toBe(22);
+    unmount();
+
+    // a Q4-final daily in the save resumes straight to its final sheet
+    const game = createGame("q4", L, ["KC", "BUF"]);
+    game.quarter = 4; game.perfects = 2;
+    game.over = { kind: "solved", score: 9, banked: 0 };
+    game.total = 41; game.chips = 3; game.quartersSolved = 4; game.turnovers = 0;
+    const base = JSON.parse(localStorage.getItem("rollout.formation.v1")!) as Record<string, unknown>;
+    localStorage.setItem("rollout.formation.v1", JSON.stringify({ ...base, dailyGame: game }));
+    const second = enter();
+    const fin = await screen.findByRole("dialog", { name: /FINAL|PEAK QUARTER/ }, { timeout: 6000 });
+    expect(within(fin).getByText(/streak/i)).toBeInTheDocument();
+    expect(within(fin).getByRole("button", { name: /SHARE/ })).toBeInTheDocument();
+    fireEvent.click(within(fin).getByRole("button", { name: /DONE/i }));
+    const chooser = await findChooser();
+    expect(within(chooser).getByText(/come back tomorrow/i)).toBeInTheDocument();
+    expect(within(chooser).queryByRole("button", { name: /TODAY'S GAME/ })).toBeNull();
+    expect(within(chooser).getByText(/38 pulls/)).toBeInTheDocument(); // 41 total − 3 unspent chips = the final score
+    second.unmount();
+  });
+
+  it("FREE PRACTICE never touches daily state", async () => {
+    enter();
+    fireEvent.click(within(await findChooser()).getByRole("button", { name: /FREE PRACTICE/ }));
+    expect(screen.getByText("Q1")).toBeInTheDocument();
+    const save = JSON.parse(localStorage.getItem("rollout.formation.v1")!);
+    expect(save.dailyGame ?? null).toBeNull();
+    expect(save.inProgress).not.toBeNull();
+    expect(save.daily?.result ?? null).toBeNull();
   });
 });

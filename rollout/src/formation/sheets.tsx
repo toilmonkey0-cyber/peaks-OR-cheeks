@@ -3,6 +3,8 @@ import type { GameState, LogEntry, Play } from "./engine/game";
 import { PEAK_QUARTER_PULLS, SCHEME_PRICES } from "./feel";
 import { finalScore } from "./engine/game";
 import type { TeamView } from "./teams";
+import type { DailyState } from "./engine/daily";
+import { shareLine } from "./share";
 
 const SIDE = ["OFFENSE", "DEFENSE"] as const;
 
@@ -102,8 +104,34 @@ export function TapeSheet({ log, onClose }: { log: LogEntry[]; onClose: () => vo
   );
 }
 
-export function OverSheet({ game, teams, onNext, onNewGame, onBuy }: {
+export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall }: {
+  daily: DailyState | null; today: string; resumableFree: boolean;
+  onToday: () => void; onFree: () => void; onWall: () => void;
+}) {
+  const done = daily && daily.day === today && daily.result;
+  return (
+    <Sheet title="FORMATION">
+      {done ? (
+        <>
+          <p className="fm-note">Today's game is in the books — come back tomorrow.</p>
+          <p className="fm-line">{shareLine(done, daily.streak)}</p>
+          <p className="fm-note">🔥 {daily.streak}-day streak.</p>
+        </>
+      ) : (
+        <p className="fm-note">Two teams are hiding. Name them in fewer pulls.</p>
+      )}
+      {!done && (
+        <button type="button" className="fm-primary" onClick={onToday}>TODAY'S GAME{daily && daily.streak > 0 ? ` · 🔥${daily.streak + 1}` : ""}</button>
+      )}
+      <button type="button" className="fm-opt" onClick={onFree}><b>FREE PRACTICE</b><small>{resumableFree ? "Resume your game in progress." : "Unlimited random games. Fills the wall."}</small></button>
+      <button type="button" className="fm-opt" onClick={onWall}><b>THE WALL</b><small>Every team you've ever named.</small></button>
+    </Sheet>
+  );
+}
+
+export function OverSheet({ game, teams, onNext, onNewGame, onBuy, dailyFinal }: {
   game: GameState; teams: Map<string, TeamView>; onNext: () => void; onNewGame: () => void; onBuy: (which: keyof typeof SCHEME_PRICES) => void;
+  dailyFinal?: { streak: number; shared: boolean; onShare: () => void; onDone: () => void };
 }) {
   const o = game.over!;
   const peakQ = o.kind === "solved" && o.score <= PEAK_QUARTER_PULLS;
@@ -130,7 +158,17 @@ export function OverSheet({ game, teams, onNext, onNewGame, onBuy }: {
       {game.quarter >= 4 ? (
         <>
           <p className="fm-final">FINAL: {game.total} spins − {game.chips} chips = <b>{finalScore(game)}</b></p>
-          <button type="button" className="fm-primary" onClick={onNewGame}>NEW GAME</button>
+          {dailyFinal ? (
+            <>
+              <p className="fm-note">🔥 {dailyFinal.streak}-day streak.</p>
+              <button type="button" className="fm-opt" onClick={dailyFinal.onShare}>
+                <b>{dailyFinal.shared ? "COPIED ✓" : "SHARE"}</b><small>The result line, ready for the group chat.</small>
+              </button>
+              <button type="button" className="fm-primary" onClick={dailyFinal.onDone}>DONE</button>
+            </>
+          ) : (
+            <button type="button" className="fm-primary" onClick={onNewGame}>NEW GAME</button>
+          )}
         </>
       ) : (
         <button type="button" className="fm-primary" onClick={onNext}>NEXT QUARTER</button>

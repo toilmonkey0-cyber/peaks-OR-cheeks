@@ -13,7 +13,7 @@ beforeEach(() => localStorage.clear());
 
 describe("formation store", () => {
   it("starts fresh when nothing is saved", () => {
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null });
+    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null });
   });
 
   it("round-trips an in-progress game", () => {
@@ -29,7 +29,7 @@ describe("formation store", () => {
 
   it("drops a malformed in-progress game but keeps the rest", () => {
     localStorage.setItem(KEY, JSON.stringify({ inProgress: { quarter: 2 }, bestGame: 30, gamesPlayed: 4 }));
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: 30, gamesPlayed: 4, wall: {}, daily: null });
+    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: 30, gamesPlayed: 4, wall: {}, daily: null, dailyGame: null });
   });
 
   it("never resurrects a mid-flight pull: pending slots come back pullable", () => {

@@ -10,9 +10,10 @@ export interface FormationSave {
   gamesPlayed: number;
   wall: Record<string, WallEntry>; // abbr → first solve (gold never downgrades)
   daily: DailyState | null;
+  dailyGame: GameState | null; // the daily's own in-progress slot — free play's inProgress is never clobbered
 }
 
-export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null });
+export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null });
 
 const isDaily = (d: unknown): d is DailyState =>
   !!d && typeof d === "object" && typeof (d as DailyState).day === "string" && typeof (d as DailyState).seed === "string" && "result" in (d as DailyState);
@@ -28,6 +29,9 @@ const isGame = (g: unknown): g is GameState =>
 /** A pull that was mid-flight when the tab died never landed: clear `pending` so the slot is pullable again. */
 function settle(g: GameState): GameState {
   for (const S of g.sides) for (const s of S.slots) s.pending = false;
+  // pre-B saves lack the quarter counters — default them or the daily result goes NaN
+  g.quartersSolved ??= 0;
+  g.turnovers ??= 0;
   return g;
 }
 
@@ -42,6 +46,7 @@ export function loadFormationSave(): FormationSave {
       gamesPlayed: typeof parsed.gamesPlayed === "number" ? parsed.gamesPlayed : 0,
       wall: isWall(parsed.wall) ? parsed.wall : {},
       daily: isDaily(parsed.daily) ? parsed.daily : null,
+      dailyGame: isGame(parsed.dailyGame) ? settle(parsed.dailyGame) : null,
     };
   } catch {
     return freshFormationSave();
