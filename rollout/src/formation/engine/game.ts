@@ -1,4 +1,8 @@
 import { makeRng } from "@/engine/rng";
+
+/** A pull's randomness depends only on the game seed + pull index — never on stream position,
+ *  so a resumed game (the daily, a killed tab) continues the exact sequence with no resync. */
+export const pullRng = (seed: string, pullIndex: number) => makeRng(`${seed}:pull:${pullIndex}`);
 import type { SlotPlayer, TeamLineups } from "./lineups";
 
 export type Layer = 0 | 1 | 2 | 3;
@@ -18,6 +22,7 @@ export interface PullPlan {
   num: string; sub: string; toast: string;
 }
 export interface GameState {
+  seed: string; // the game's identity: every pull/quarter derives from it (survives save/resume)
   quarter: number;
   sides: [SideState, SideState];
   pulls: number;
@@ -57,6 +62,7 @@ export function pickTeams(teams: string[], rng: () => number): [string, string] 
 export function createGame(seed: string, lineups: Record<string, TeamLineups>, teams?: [string, string]): GameState {
   const [a, b] = teams ?? pickTeams(Object.keys(lineups), makeRng(seed));
   return {
+    seed,
     quarter: 1,
     sides: [sideState(a, lineups[a].off.slots), sideState(b, lineups[b].def.slots)],
     pulls: 0, downs: 4, chips: 0, noHuddle: false, film: false,

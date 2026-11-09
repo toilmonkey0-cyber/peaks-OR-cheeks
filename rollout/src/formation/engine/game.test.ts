@@ -4,7 +4,7 @@ import { loadSnapshot } from "@/data/snapshot";
 import { buildLineups } from "./lineups";
 import {
   applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, finalScore, nextQuarter,
-  planPull, playPeak, SCHEME_PRICES, spendPeak, startPull, TURNOVER_PENALTY, weightOf, type GameState,
+  planPull, playPeak, pullRng, SCHEME_PRICES, spendPeak, startPull, TURNOVER_PENALTY, weightOf, type GameState,
 } from "./game";
 
 const L = buildLineups(loadSnapshot("m27"));
@@ -331,5 +331,43 @@ describe("spec §10: statistical invariants", () => {
     const c = play("daily-2");
     expect(a).toEqual(b);
     expect(a.teams).not.toEqual(c.teams);
+  });
+});
+
+describe("per-pull determinism (the daily's spine)", () => {
+  const seed = "fm-daily:2026-11-08:week-6";
+  const play = (n: number, g0?: GameState) => {
+    const g = g0 ?? createGame(seed, L);
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const p = planPull(g, pullRng(seed, g.pulls));
+      if (!p) break;
+      out.push(`${p.side}:${p.index}:${p.num}:${p.sub}`);
+      commitPull(g, p);
+    }
+    return { g, out };
+  };
+
+  it("same seed → identical reveal sequence", () => {
+    const a = play(12);
+    const b = play(12);
+    expect(a.out).toEqual(b.out);
+    expect(a.g.sides.map((s) => s.team)).toEqual(b.g.sides.map((s) => s.team));
+  });
+
+  it("a save/resume mid-game continues the exact sequence (no stream resync needed)", () => {
+    const first4 = play(4);
+    const clone = JSON.parse(JSON.stringify(first4.g)) as GameState;
+    const resumed = play(3, clone);
+    const unbroken = play(7);
+    expect(resumed.out).toEqual(unbroken.out.slice(4));
+    expect(resumed.g.sides.flatMap((s) => s.slots.map((x) => [x.layer, x.fd]))).toEqual(
+      unbroken.g.sides.flatMap((s) => s.slots.map((x) => [x.layer, x.fd])));
+  });
+
+  it("different seed → a different game", () => {
+    const g2 = createGame("fm-daily:2026-11-09:week-6", L);
+    const other = (() => { const out: string[] = []; for (let i = 0; i < 6; i++) { const p = planPull(g2, pullRng("fm-daily:2026-11-09:week-6", g2.pulls)); if (!p) break; out.push(`${p.side}:${p.index}`); commitPull(g2, p); } return out; })();
+    expect(other).not.toEqual(play(6).out.map((x) => x.split(":").slice(0, 2).join(":")));
   });
 });

@@ -5,7 +5,7 @@ import type { Team } from "@/data/schema";
 import { makeRng } from "@/engine/rng";
 import type { TeamLineups } from "./engine/lineups";
 import {
-  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, finalScore, nextQuarter, planPull, playPeak,
+  applyPlay, buyScheme, call, commitPull, createGame, eligible, filmSlot, finalScore, nextQuarter, planPull, playPeak, pullRng,
   spendPeak, startPull, type GameState, type Play, type PullPlan,
 } from "./engine/game";
 import { ActionStage, reduceMotion, type StageApi } from "./ActionStage";
@@ -52,7 +52,6 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
       ?? (initialTeams ? createGame(seedRef.current, lineups, initialTeams) : saveRef.current.inProgress ?? createGame(seedRef.current, lineups));
   }
   const g = gameRef.current;
-  const rngRef = useRef(makeRng(seedRef.current + ":pulls"));
   const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<StageApi>(null);
   const busyRef = useRef(false);
@@ -79,7 +78,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     if (perfect) game.perfects++;
     const n = startPull(game);
     const plans: PullPlan[] = [];
-    for (let k = 0; k < n; k++) { const p = planPull(game, rngRef.current); if (p) plans.push(p); }
+    for (let k = 0; k < n; k++) { const p = planPull(game, pullRng(game.seed, game.pulls - 1)); if (p) plans.push(p); }
     bump();
     for (let k = 0; k < plans.length; k++) {
       const p = plans[k];
@@ -196,7 +195,7 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     done();
   };
   const onNext = () => {
-    nextQuarter(g, lineups, makeRng(seedRef.current + ":q" + (g.quarter + 1)));
+    nextQuarter(g, lineups, makeRng(g.seed + ":q" + (g.quarter + 1)));
     done();
   };
   const onNewGame = () => {
@@ -204,7 +203,6 @@ export function FormationScreen({ lineups, teams, onExit, initialTeams, seed, in
     if (finished.over && finished.quarter >= 4) saveRef.current = recordFinishedGame(saveRef.current, finalScore(finished));
     seedRef.current = newSeed();
     gameRef.current = createGame(seedRef.current, lineups);
-    rngRef.current = makeRng(seedRef.current + ":pulls");
     done();
   };
 
