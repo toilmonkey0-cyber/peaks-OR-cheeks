@@ -190,3 +190,15 @@
 .fm-wall-tile.gold small { color: var(--gold); }
 
 .fm-scrim.choice { z-index: 20; } /* under the chooser sheet, above the live field */
+.fm-input { background: #0c1322; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font: inherit; padding: 9px 12px; width: 100%; box-sizing: border-box; }
+.fm-input:focus { outline: 1px solid var(--gold); }
+.fm-tabs { display: flex; gap: 6px; }
+.fm-tabs button { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--line) !important; color: var(--dim); font-weight: 800; letter-spacing: .1em; }
+.fm-tabs button.on { border-color: var(--gold) !important; color: var(--gold); }
+.fm-boardlist { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 17px; }
+.fm-boardlist li { display: flex; gap: 12px; align-items: baseline; padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.fm-boardlist .pos { color: var(--dim); min-width: 22px; font-variant-numeric: tabular-nums; }
+.fm-boardlist .nick { flex: 1; font-weight: 800; }
+.fm-boardlist .score { font-weight: 800; font-variant-numeric: tabular-nums; }
+.fm-boardlist li.you .nick, .fm-boardlist li.you .score { color: var(--gold); }
+.fm-chooser-chips { margin-left: 0; margin-top: 4px; }

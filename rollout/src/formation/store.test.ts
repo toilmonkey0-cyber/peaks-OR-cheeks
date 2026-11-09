@@ -3,7 +3,7 @@ import { loadSnapshot } from "@/data/snapshot";
 import { makeRng } from "@/engine/rng";
 import { buildLineups } from "./engine/lineups";
 import { createGame, planPull } from "./engine/game";
-import { freshFormationSave, loadFormationSave, recordFinishedGame, recordWallSolve, writeFormationSave, type FormationSave } from "./store";
+import { clearQueued, ensurePlayer, freshFormationSave, loadFormationSave, queueScore, recordFinishedGame, recordWallSolve, writeFormationSave, type FormationSave } from "./store";
 import { finishDaily, freshDaily, startDaily } from "./engine/daily";
 
 const L = buildLineups(loadSnapshot("m27"));
@@ -13,7 +13,7 @@ beforeEach(() => localStorage.clear());
 
 describe("formation store", () => {
   it("starts fresh when nothing is saved", () => {
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null, published: null });
+    expect(loadFormationSave()).toEqual({ ...freshFormationSave() });
   });
 
   it("round-trips an in-progress game", () => {
@@ -29,7 +29,7 @@ describe("formation store", () => {
 
   it("drops a malformed in-progress game but keeps the rest", () => {
     localStorage.setItem(KEY, JSON.stringify({ inProgress: { quarter: 2 }, bestGame: 30, gamesPlayed: 4 }));
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: 30, gamesPlayed: 4, wall: {}, daily: null, dailyGame: null, published: null });
+    expect(loadFormationSave()).toEqual({ ...freshFormationSave(), bestGame: 30, gamesPlayed: 4 });
   });
 
   it("never resurrects a mid-flight pull: pending slots come back pullable", () => {
@@ -120,5 +120,30 @@ describe("published payload cache", () => {
     expect(loadFormationSave().published).toEqual(payload);
     localStorage.setItem(KEY, JSON.stringify({ ...s, published: "junk" }));
     expect(loadFormationSave().published).toBeNull();
+  });
+});
+
+describe("groups + the offline score queue", () => {
+  it("player identity is stable per device; groups and queue round-trip", () => {
+    let s = ensurePlayer(freshFormationSave());
+    const id = s.playerId;
+    expect(id).toMatch(/^[a-z0-9-]{8,}$/);
+    expect(ensurePlayer(s).playerId).toBe(id); // never re-rolled
+    s = { ...s, groups: [{ code: "BLTZ7K", name: "the boys" }], pendingScores: [{ groupCode: "BLTZ7K", day: "2026-11-09", playerId: id, nick: "AARON", score: 38, detailJson: "{}" }] };
+    writeFormationSave(s);
+    const back = loadFormationSave();
+    expect(back.groups).toEqual(s.groups);
+    expect(back.pendingScores).toEqual(s.pendingScores);
+    expect(back.playerId).toBe(id);
+  });
+  it("queueScore adds without duplicates per (group, day); clearQueued drains by predicate", () => {
+    let s = ensurePlayer(freshFormationSave());
+    const post = { groupCode: "BLTZ7K", day: "2026-11-09", playerId: s.playerId, nick: "AARON", score: 38, detailJson: "{}" };
+    s = queueScore(s, post);
+    s = queueScore(s, { ...post, score: 41 }); // same key replaces
+    expect(s.pendingScores.length).toBe(1);
+    expect(s.pendingScores[0].score).toBe(41);
+    s = clearQueued(s, (x) => x.groupCode === "BLTZ7K" && x.day === "2026-11-09");
+    expect(s.pendingScores).toEqual([]);
   });
 });

@@ -12,12 +12,33 @@ export interface FormationSave {
   daily: DailyState | null;
   dailyGame: GameState | null; // the daily's own in-progress slot — free play's inProgress is never clobbered
   published: DailyPayload | null; // today's Worker-published envelope when one has been fetched (offline replay)
+  playerId: string; // stable device identity (uuid) - the board knows no accounts
+  nick: string; // display name on the board (editable; stored per device)
+  groups: { code: string; name: string }[];
+  pendingScores: { groupCode: string; day: string; playerId: string; nick: string; score: number; detailJson: string }[];
 }
 
 const isPayload = (v: unknown): v is DailyPayload =>
   !!v && typeof v === "object" && Array.isArray((v as DailyPayload).quarters) && (v as DailyPayload).quarters.length === 4 && typeof (v as DailyPayload).seed === "string";
 
-export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null, published: null });
+export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null, published: null, playerId: "", nick: "", groups: [], pendingScores: [] });
+
+/** Give the device its identity once - never re-rolled. */
+export function ensurePlayer(save: FormationSave): FormationSave {
+  if (save.playerId) return save;
+  const id = (globalThis.crypto?.randomUUID?.() ?? "p-" + Math.random().toString(36).slice(2) + Date.now().toString(36));
+  return { ...save, playerId: id };
+}
+
+/** A finished daily that couldn't post queues here; same (group, day) replaces. */
+export function queueScore(save: FormationSave, post: FormationSave["pendingScores"][number]): FormationSave {
+  const rest = save.pendingScores.filter((x) => !(x.groupCode === post.groupCode && x.day === post.day));
+  return { ...save, pendingScores: [...rest, post] };
+}
+
+export function clearQueued(save: FormationSave, match: (x: FormationSave["pendingScores"][number]) => boolean): FormationSave {
+  return { ...save, pendingScores: save.pendingScores.filter((x) => !match(x)) };
+}
 
 const isDaily = (d: unknown): d is DailyState =>
   !!d && typeof d === "object" && typeof (d as DailyState).day === "string" && typeof (d as DailyState).seed === "string" && "result" in (d as DailyState);
@@ -53,6 +74,10 @@ export function loadFormationSave(): FormationSave {
       daily: isDaily(parsed.daily) ? parsed.daily : null,
       dailyGame: isGame(parsed.dailyGame) ? settle(parsed.dailyGame) : null,
       published: isPayload(parsed.published) ? parsed.published : null,
+      playerId: typeof parsed.playerId === "string" ? parsed.playerId : "",
+      nick: typeof parsed.nick === "string" ? parsed.nick : "",
+      groups: Array.isArray(parsed.groups) ? parsed.groups.filter((g) => g && typeof g.code === "string" && typeof g.name === "string") : [],
+      pendingScores: Array.isArray(parsed.pendingScores) ? parsed.pendingScores : [],
     };
   } catch {
     return freshFormationSave();

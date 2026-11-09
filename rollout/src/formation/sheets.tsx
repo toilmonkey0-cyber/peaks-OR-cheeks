@@ -105,9 +105,9 @@ export function TapeSheet({ log, onClose }: { log: LogEntry[]; onClose: () => vo
   );
 }
 
-export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall }: {
+export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall, onGroups, onBoard }: {
   daily: DailyState | null; today: string; resumableFree: boolean;
-  onToday: () => void; onFree: () => void; onWall: () => void;
+  onToday: () => void; onFree: () => void; onWall: () => void; onGroups: () => void; onBoard: () => void;
 }) {
   const done = daily && daily.day === today && daily.result;
   return (
@@ -128,6 +128,10 @@ export function ModeSheet({ daily, today, resumableFree, onToday, onFree, onWall
       )}
       <button type="button" className="fm-opt" onClick={onFree}><b>FREE PRACTICE</b><small>{resumableFree ? "Resume your game in progress." : "Unlimited random games. Fills the wall."}</small></button>
       <button type="button" className="fm-opt" onClick={onWall}><b>THE WALL</b><small>Every team you've ever named.</small></button>
+      <div className="fm-bar-chips fm-chooser-chips">
+        <button type="button" className="fm-tape" onClick={onGroups}>GROUPS</button>
+        <button type="button" className="fm-tape" onClick={onBoard}>THE BOARD</button>
+      </div>
       </Sheet>
     </>
   );

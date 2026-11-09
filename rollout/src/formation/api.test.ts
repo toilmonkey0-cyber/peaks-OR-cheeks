@@ -67,3 +67,41 @@ describe("fetchDaily", () => {
     expect(called).not.toHaveBeenCalled();
   });
 });
+
+describe("the board client", () => {
+  const origFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = origFetch; vi.restoreAllMocks(); });
+
+  it("createGroup → joinGroup → postScore → fetchBoard round trip through the api module", async () => {
+    const { setApiBase, createGroup, joinGroup, postScore, fetchBoard } = await import("./api");
+    setApiBase("https://worker.example");
+    const calls: { method: string; url: string; body?: unknown }[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ method: init?.method ?? "GET", url: String(input), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const url = String(input);
+      if (url.endsWith("/groups") && init?.method === "POST") return new Response(JSON.stringify({ code: "BLTZ7K" }), { status: 200 });
+      if (url.includes("/board?")) return new Response(JSON.stringify({ rows: [{ nick: "AARON", playerId: "p1", score: 38, detailJson: "{}" }], youPlayed: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    expect(await createGroup("the boys")).toBe("BLTZ7K");
+    expect(await joinGroup("BLTZ7K", "p1", "AARON")).toBe(true);
+    expect(await postScore("BLTZ7K", { day: "2026-11-09", playerId: "p1", nick: "AARON", score: 38, detailJson: "{}" })).toBe(true);
+    const board = await fetchBoard("BLTZ7K", "2026-11-09", "p1");
+    expect(board?.rows[0].nick).toBe("AARON");
+    expect(board?.youPlayed).toBe(true);
+    expect(calls[0].body).toEqual({ name: "the boys" });
+    setApiBase("");
+  });
+
+  it("every call fails soft (null/false) when the worker is unreachable", async () => {
+    const { setApiBase, createGroup, fetchBoard, postScore, fetchDaily } = await import("./api");
+    setApiBase("https://worker.example");
+    globalThis.fetch = (async () => { throw new Error("offline"); }) as unknown as typeof fetch;
+    expect(await createGroup("x")).toBeNull();
+    expect(await fetchBoard("X", "d", "p")).toBeNull();
+    expect(await postScore("X", { day: "d", playerId: "p", nick: "n", score: 1, detailJson: "{}" })).toBe(false);
+    expect(await fetchDaily("d", "v")).toBeNull();
+    setApiBase("");
+  });
+});
