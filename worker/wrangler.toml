@@ -1,0 +1,18 @@
+name = "formation-board"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# deploy: npx wrangler deploy (needs `npx wrangler login` once)
+# d1: created once —
+#   npx wrangler d1 create formation-board
+#   paste the id below, then:
+#   npx wrangler d1 execute formation-board --file schema.sql --remote
+
+[[d1_databases]]
+binding = "FORMATION_DB"
+database_name = "formation-board"
+database_id = "PASTE-YOUR-D1-ID-HERE"
+
+[vars]
+# who may call the API from a browser (no trailing slash)
+CORS_ORIGINS = "https://toilmonkey0-cyber.github.io,http://localhost:4174,http://localhost:4181"
