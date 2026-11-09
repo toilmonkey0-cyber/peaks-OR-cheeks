@@ -19,7 +19,8 @@ import { teamViews } from "./teams";
 import { loadFormationSave, recordFinishedGame, recordWallSolve, writeFormationSave } from "./store";
 import { WallSheet } from "./WallSheet";
 import { ModeSheet } from "./sheets";
-import { finishDaily, freshDaily, localDay, nextStreak, startDaily } from "./engine/daily";
+import { finishDaily, freshDaily, gameFromPayload, localDay, nextPublishedQuarter, nextStreak, startDaily } from "./engine/daily";
+import { apiBase, fetchDaily } from "./api";
 import { shareLine } from "./share";
 import { copyText } from "@/util/clipboard";
 import "./FormationScreen.css";
@@ -150,10 +151,8 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
   };
   const startMode = (m: "daily" | "free") => {
     if (m === "daily") {
-      const d = startDaily(saveRef.current.daily ?? freshDaily(), today, dataVersion);
-      const g = createGame(d.seed, lineups);
-      saveRef.current = { ...saveRef.current, daily: d, dailyGame: g };
-      gameRef.current = g;
+      void startDailyMode();
+      return;
     } else {
       const g = saveRef.current.inProgress ?? createGame(newSeed(), lineups); // resume beats discard
       saveRef.current = { ...saveRef.current, inProgress: g };
@@ -164,6 +163,21 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
     writeFormationSave(saveRef.current);
     bump();
   };
+  /** TODAY: the Worker's published daily when reachable, else the cached one, else the phase-B local seed. */
+  const startDailyMode = async () => {
+    const d = startDaily(saveRef.current.daily ?? freshDaily(), today, dataVersion);
+    setMode("daily");
+    setView("play");
+    setSheet(null);
+    let payload = apiBase() ? await fetchDaily(today, dataVersion) : null;
+    if (!payload && saveRef.current.published?.day === today) payload = saveRef.current.published;
+    const g = payload ? gameFromPayload(payload, 0) : createGame(d.seed, lineups);
+    saveRef.current = { ...saveRef.current, daily: d, dailyGame: g, ...(payload ? { published: payload } : {}) };
+    gameRef.current = g;
+    writeFormationSave(saveRef.current);
+    bump();
+  };
+
   const finishDailyGame = () => {
     const g = gameRef.current!;
     const d = saveRef.current.daily!;
@@ -259,8 +273,10 @@ export function FormationScreen({ lineups, teams, dataVersion, onExit, initialTe
     done();
   };
   const onNext = () => {
-    nextQuarter(g, lineups, makeRng(g.seed + ":q" + (g.quarter + 1)));
-    done();
+    if (mode === "daily" && saveRef.current.published?.day === today) nextPublishedQuarter(g, saveRef.current.published);
+    else nextQuarter(g, lineups, makeRng(g.seed + ":q" + (g.quarter + 1)));
+    persist();
+    bump();
   };
   const dailyStreak = saveRef.current.daily
     ? nextStreak(saveRef.current.daily.streak, saveRef.current.daily.lastPlayedDay, saveRef.current.daily.day)

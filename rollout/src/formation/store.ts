@@ -1,5 +1,5 @@
 import type { GameState } from "./engine/game";
-import { localDay, type DailyState } from "./engine/daily";
+import { localDay, type DailyPayload, type DailyState } from "./engine/daily";
 
 const KEY = "rollout.formation.v1";
 
@@ -11,9 +11,13 @@ export interface FormationSave {
   wall: Record<string, WallEntry>; // abbr → first solve (gold never downgrades)
   daily: DailyState | null;
   dailyGame: GameState | null; // the daily's own in-progress slot — free play's inProgress is never clobbered
+  published: DailyPayload | null; // today's Worker-published envelope when one has been fetched (offline replay)
 }
 
-export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null });
+const isPayload = (v: unknown): v is DailyPayload =>
+  !!v && typeof v === "object" && Array.isArray((v as DailyPayload).quarters) && (v as DailyPayload).quarters.length === 4 && typeof (v as DailyPayload).seed === "string";
+
+export const freshFormationSave = (): FormationSave => ({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null, published: null });
 
 const isDaily = (d: unknown): d is DailyState =>
   !!d && typeof d === "object" && typeof (d as DailyState).day === "string" && typeof (d as DailyState).seed === "string" && "result" in (d as DailyState);
@@ -48,6 +52,7 @@ export function loadFormationSave(): FormationSave {
       wall: isWall(parsed.wall) ? parsed.wall : {},
       daily: isDaily(parsed.daily) ? parsed.daily : null,
       dailyGame: isGame(parsed.dailyGame) ? settle(parsed.dailyGame) : null,
+      published: isPayload(parsed.published) ? parsed.published : null,
     };
   } catch {
     return freshFormationSave();

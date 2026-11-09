@@ -13,7 +13,7 @@ beforeEach(() => localStorage.clear());
 
 describe("formation store", () => {
   it("starts fresh when nothing is saved", () => {
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null });
+    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: null, gamesPlayed: 0, wall: {}, daily: null, dailyGame: null, published: null });
   });
 
   it("round-trips an in-progress game", () => {
@@ -29,7 +29,7 @@ describe("formation store", () => {
 
   it("drops a malformed in-progress game but keeps the rest", () => {
     localStorage.setItem(KEY, JSON.stringify({ inProgress: { quarter: 2 }, bestGame: 30, gamesPlayed: 4 }));
-    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: 30, gamesPlayed: 4, wall: {}, daily: null, dailyGame: null });
+    expect(loadFormationSave()).toEqual({ inProgress: null, bestGame: 30, gamesPlayed: 4, wall: {}, daily: null, dailyGame: null, published: null });
   });
 
   it("never resurrects a mid-flight pull: pending slots come back pullable", () => {
@@ -106,5 +106,19 @@ describe("legacy phase-A saves", () => {
     expect(typeof a.seed).toBe("string");
     expect(a.seed.length).toBeGreaterThan(3);
     expect(loadFormationSave().inProgress!.seed).toBe(a.seed); // stable, not re-rolled per load
+  });
+});
+
+describe("published payload cache", () => {
+  const payload = {
+    day: "2026-11-09", dataVersion: "w6", seed: "fm-daily:2026-11-09:w6",
+    quarters: [0, 1, 2, 3].map((q) => ({ offense: `O${q}`, defense: `D${q}`, lineups: { off: [], def: [] } })),
+  };
+  it("round-trips and survives corrupt sections", () => {
+    let s = { ...freshFormationSave(), published: payload };
+    writeFormationSave(s);
+    expect(loadFormationSave().published).toEqual(payload);
+    localStorage.setItem(KEY, JSON.stringify({ ...s, published: "junk" }));
+    expect(loadFormationSave().published).toBeNull();
   });
 });

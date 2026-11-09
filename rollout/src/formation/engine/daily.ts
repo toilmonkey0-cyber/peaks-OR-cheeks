@@ -1,3 +1,5 @@
+import type { GameState, SideState } from "./game";
+
 /**
  * The daily: today's game, one attempt, same for everyone on the same data version.
  * Phase B derives the seed on-device (spec §11-B); the phase-C Worker publishes sealed lineups.
@@ -19,6 +21,16 @@ function prevDay(day: string): string {
 
 /** Same game for every player on the same day + roster snapshot. */
 export const dailySeed = (day: string, dataVersion: string): string => `fm-daily:${day}:${dataVersion}`;
+
+// ── published dailies (phase C: the Worker's sealed envelope) ────────────────
+export interface PubPlayer {
+  team: string; side: "off" | "def"; key: string; label: string; pos: string; jersey: number; ini: string;
+  fullName: string; college: string; rating: number; playerId: string; stamp: "P" | "M" | "C"; cls: "common" | "skill" | "jack";
+}
+export interface DailyPayload {
+  day: string; dataVersion: string; seed: string;
+  quarters: { offense: string; defense: string; lineups: { off: PubPlayer[]; def: PubPlayer[] } }[];
+}
 
 /** Streak arithmetic: yesterday keeps it alive, today is idempotent, any gap resets to 1. */
 export function nextStreak(streak: number, lastPlayedDay: string | null, todayDay: string): number {
@@ -48,4 +60,38 @@ export function startDaily(state: DailyState, day: string, dataVersion: string):
 export function finishDaily(state: DailyState, result: DailyResult): DailyState {
   const streak = nextStreak(state.streak, state.lastPlayedDay, result.day);
   return { ...state, streak, lastPlayedDay: result.day, result };
+}
+
+/** One quarter of a published daily as a fresh GameState — no local dataset touched. */
+export function gameFromPayload(payload: DailyPayload, quarterIndex: number): GameState {
+  const q = payload.quarters[Math.min(quarterIndex, payload.quarters.length - 1)];
+  const side = (team: string, lineup: PubPlayer[]): SideState => ({
+    team,
+    lineup: lineup.map((p) => ({ ...p })),
+    slots: lineup.map(() => ({ layer: 0, fd: false, sealed: false, ghost: false, pending: false })),
+    solved: false,
+    out: [],
+    wrongCalls: 0,
+  });
+  return {
+    seed: payload.seed,
+    quarter: quarterIndex + 1,
+    sides: [side(q.offense, q.lineups.off), side(q.defense, q.lineups.def)],
+    pulls: 0, downs: 4, chips: 0, noHuddle: false, film: false,
+    schemes: { starPower: false, scouting: false },
+    over: null, total: 0, perfects: 0, quartersSolved: 0, turnovers: 0, flags: 0,
+    log: [],
+  };
+}
+
+/** Deal the payload's next quarter, carrying chips/schemes/counters (mirrors nextQuarter's carries). */
+export function nextPublishedQuarter(state: GameState, payload: DailyPayload): boolean {
+  if (!state.over || state.quarter >= 4) return false;
+  const carry = {
+    seed: state.seed, chips: state.chips, perfects: state.perfects, total: state.total,
+    quartersSolved: state.quartersSolved, turnovers: state.turnovers, schemes: state.schemes,
+  };
+  const next = gameFromPayload({ ...payload, seed: state.seed }, state.quarter);
+  Object.assign(state, next, carry, { quarter: state.quarter + 1, flags: 0 });
+  return true;
 }
