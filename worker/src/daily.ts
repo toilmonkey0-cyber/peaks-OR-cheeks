@@ -3,7 +3,7 @@
 
 export interface PubPlayer {
   team: string; key: string; label: string; pos: string; jersey: number; ini: string;
-  side: "off" | "def"; college: string; rating: number; playerId: string; stamp: "P" | "M" | "C"; cls: "common" | "skill" | "jack";
+  side: "off" | "def"; fullName: string; college: string; rating: number; playerId: string; stamp: "P" | "M" | "C"; cls: "common" | "skill" | "jack";
 }
 export interface WorkerData {
   dataVersion: string;

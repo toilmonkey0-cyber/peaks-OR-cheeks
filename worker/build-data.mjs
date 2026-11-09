@@ -25,7 +25,7 @@ const pick = (team, spec) => {
     seen.set(pos, n);
     const repeats = spec.filter(([q]) => q === pos).length > 1;
     const side = OFF.some(([q]) => q === pos) ? "off" : "def";
-    starters.push({ team, side, key: repeats ? pos + n : pos, label, pos, jersey: p.jersey, ini: ini(p.fullName), college: p.college, rating: p.rating, playerId: p.playerId });
+    starters.push({ team, side, key: repeats ? pos + n : pos, label, pos, jersey: p.jersey, ini: ini(p.fullName), fullName: p.fullName, college: p.college, rating: p.rating, playerId: p.playerId });
   });
 };
 
