@@ -31,6 +31,8 @@ jobs:
         working-directory: rollout
         env:
           GITHUB_PAGES: true
+          # FORMATION's friends-board worker (public URL, not a secret; absent locally = the app runs boardless)
+          VITE_FORMATION_API: https://formation-board.toilmonkey.workers.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: rollout/dist
