@@ -11,7 +11,7 @@ compatibility_date = "2026-10-01"
 [[d1_databases]]
 binding = "FORMATION_DB"
 database_name = "formation-board"
-database_id = "PASTE-YOUR-D1-ID-HERE"
+database_id = "e95bc520-668a-4d12-9545-9bf8f60bee13"
 
 [vars]
 # who may call the API from a browser (no trailing slash)

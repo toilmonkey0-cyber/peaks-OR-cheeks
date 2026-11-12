@@ -36,10 +36,11 @@ function makeDb() {
         async all() {
           if (/FROM scores/i.test(sql) && /ORDER BY/i.test(sql)) {
             const [groupCode, day] = state.params;
-            return tables.scores
+            const rows = tables.scores
               .filter((r) => r.groupCode === groupCode && r.day === day)
               .sort((a, b) => a.score - b.score)
               .map((r) => ({ nick: r.nick, playerId: r.playerId, score: r.score, detailJson: r.detailJson }));
+            return { results: rows }; // real D1 returns {results: [...]}, never a bare array
           }
           if (/FROM groups WHERE code/i.test(sql)) {
             const i = tables.groups.findIndex((r) => r.code === state.params[0]);

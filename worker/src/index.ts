@@ -105,8 +105,9 @@ export async function handle(request: Request, db: D1Like, data: WorkerData, cor
     if (!day || !playerId) return JSON_BODY({ error: "day and playerId required" }, 400, corsHeaders);
     const group = await db.prepare("SELECT * FROM groups WHERE code = ?").bind(board[1]).first() as { code: string } | null;
     if (!group) return JSON_BODY({ error: "no such group" }, 404, corsHeaders);
-    const rows = (await db.prepare("SELECT nick, playerId, score, detailJson FROM scores WHERE groupCode = ? AND day = ? ORDER BY score ASC")
-      .bind(board[1], day).all()) as { nick: string; playerId: string; score: number; detailJson: string }[];
+    const res = (await db.prepare("SELECT nick, playerId, score, detailJson FROM scores WHERE groupCode = ? AND day = ? ORDER BY score ASC")
+      .bind(board[1], day).all()) as unknown as { results?: { nick: string; playerId: string; score: number; detailJson: string }[] };
+    const rows = res.results ?? (res as unknown as { nick: string; playerId: string; score: number; detailJson: string }[]); // D1 wraps in {results}
     return JSON_BODY({ rows, youPlayed: rows.some((r) => r.playerId === playerId) }, 200, corsHeaders);
   }
 
